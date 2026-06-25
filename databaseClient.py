@@ -1,0 +1,260 @@
+from typing import Optional
+import helpers.utils as utils
+from datetime import datetime, timezone
+from sqlalchemy import create_engine, select, and_, update, delete, func
+from sqlalchemy.orm import Session, sessionmaker, joinedload
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from helpers.logger import logger
+from entities import Base, Weapon, Collection, FloatRange, Item, Listing
+from helpers.populateFloatRange import FloatRangePopulator
+
+class DatabaseClient:
+
+    def __init__(self, db_url: str):
+        self.engine = create_engine(db_url)
+        Base.metadata.create_all(self.engine)
+        self.session = Session(self.engine)
+        self.floatRangePopulator = FloatRangePopulator()
+
+    def __shutdown__(self):
+        self.floatRangePopulator.__shutdown__()
+
+    def __return_pk(self, instance):
+        if type(instance) == Weapon:
+            return instance.full_name
+        elif type(instance) == Item:
+            return instance.id
+        elif type(instance) == Listing:
+            return instance.id
+
+    def merge_instance(self, instance):
+        session = self.session
+        try:
+            session.merge(instance)
+            session.commit()
+            return self.__return_pk(instance)
+        except Exception as e:
+            session.rollback()
+            raise e
+
+    def insert_instances(self, instances: list):
+        session = self.session
+        try:
+            session.add_all(instances)
+            session.commit()
+        except Exception as e:
+            logger.error("Inserting Instaces threw an exception: " + e)
+            session.rollback()
+        finally:
+            session.close()
+
+    def insert_one_by_one(self, instances: list):
+        session = self.session()
+        try:
+            for instance in instances:
+                session.add(instance)
+                session.commit()
+        except Exception as e:
+            session.rollback()
+            logger.warning(f"Error occured for instance: {instance}")
+            raise e
+        finally:
+            session.close()
+
+    def merge_instances(self, instances: list):
+        """Inserts or updates the given fixtures in the database
+        Uses SQLAlchemy merge(), which will insert if not found, or update if exists, based on the primary key"""
+
+        with self.session() as session:
+            try:
+                for instance in instances:
+                    session.merge(instance)
+                session.commit()
+            except Exception as e:
+                session.rollback()
+                raise e
+            finally:
+                logger.info(f"Finished updating instances: {instance}")
+
+    def merge_one_by_one(self, instances: list):
+        """Inserts or updates the given instances in the database """
+
+        with self.session() as session:
+            try:
+                for instance in instances:
+                    session.merge(instance)
+                    session.commit()
+            except Exception as e:
+                session.rollback()
+                raise e
+            finally:
+                logger.info(f"Finished updating instances: {instance}")
+
+
+    def __ensure_collection(self, name: str) -> str:
+        """Get or create a Collection row; return the name (pk)"""
+        row = self.session.scalar(select(Collection).where(Collection.name == name))
+        if row:
+            return row.name
+        new = Collection(name = name, type="collection")
+        self.session.add(new)
+        self.session.flush()
+        logger.info("Created new collection: %s", name)
+        return name
+
+    def __ensure_float_range(self, item: FloatRange) -> str:
+        """Get or create a float range row; return the name(pk)"""
+        row = self.session.scalar(select(FloatRange).where(FloatRange.compareRange(FloatRange,item)))
+        if row:
+            return row.name
+        self.session.add(item)
+        self.session.flush()
+        logger.info("Created new float range: %s", item.name)
+        return item.name
+
+    def __ensure_weapon(self, raw: dict, extra: dict) -> Optional[str]:
+        """Checks if the current weapon & required tables exist, creates if not, updates if yes. in both scenarios returns the primary key on success"""
+
+        full_name_val = extra.get("name") or raw.get("title")
+
+        # Ensure required tables exist and create weapon skin
+        quality_val = utils._parse_quality(extra.get("quality"))
+        if not quality_val:
+            logger.warning(f"Skipping item with unknown quality: {raw.get("title")}",)
+            return None
+        
+        # Check if the collection exists and create if not
+        collections_raw: list[str] = extra.get("collection") or []
+        if collections_raw:
+            raw_name = collections_raw[0].strip() if collections_raw else ""
+            collection_name = self.__ensure_collection(raw_name) if raw_name else None
+        
+
+        # Get float range, check if it exists and create if not
+        float_range_name = "NO_FLOAT_RANGE"
+        float_range = self.floatRangePopulator.get_float_range(full_name_val)
+        if float_range:
+             float_range_name = self.__ensure_float_range(float_range)
+            
+        # Create Skin
+        instance = Weapon(
+            full_name= full_name_val,
+            name = str(full_name_val).split("|")[0],
+            skin = str(full_name_val).split("|")[1],
+            weapon_type = extra.get("itemType", "unknown"),
+            quality = quality_val,
+            category_path = extra.get("categoryPath"),
+            collection_name = collection_name,
+            float_range_name = float_range_name
+        )
+
+        return self.merge_instance(instance)
+
+
+    def __get_ExteriorType(self, weaponName: str, floatValue: float) -> Optional[str]:
+        """Based on the weapon and float value gets the corresponding exterior type"""
+        weapon_res = self.session.scalar(select(Weapon).where(Weapon.full_name == weaponName))
+        if weapon_res is None:
+            logger.warning(f"No weapon {weaponName} exists in Weapon Table")
+            return None
+
+        float_range = self.session.scalar(select(FloatRange).where(Weapon.float_range_name == weapon_res.float_range_name))
+
+        if float_range is None:
+            logger.warning(f"No float range {float_range} for weapon {weaponName} exists in FloatRange Table")
+            return None
+        
+        ext_type = float_range.findExteriorType(floatValue)
+
+        return ext_type.name 
+
+
+    def insert_item(self, raw: dict, extra: dict) -> Optional[int]:
+        """Inserts an item from DMarket, merges if it exists already"""
+
+        # 1. check if the underlying weapon exists and create if not
+        weapon_val = self.__ensure_weapon(raw, extra)
+        if not weapon_val:
+            logger.warning(f"Failed to find weapon: {weapon_val}")
+
+        # Parse classId — DMarket format "8529624800:8246937075"
+        class_id_full: str = raw.get("classId", "")
+        steam_class_id = class_id_full.split(":")[0] if ":" in class_id_full else class_id_full
+
+        is_stattrak = "stattrak" in raw.get("title", "").lower()
+        is_souvenir = "souvenir" in raw.get("title", "").lower()
+
+        float_val = extra.get("floatValue")
+        ext_type = self.__get_ExteriorType(weapon_val, float_val)
+
+        instance = Item(
+            weapon_full_name = weapon_val,
+            float_value = float_val,
+            exterior_type = ext_type,
+            is_stattrak = is_stattrak,
+            is_souvenir = is_souvenir,
+            paint_index = extra.get("paintIndex"),
+            steam_class_id   = steam_class_id,
+            dmarket_product_id = raw.get("productId"),
+            image_url        = raw.get("image"),
+            name_color       = extra.get("nameColor"),
+        )
+
+        return self.merge_instance(instance)
+
+    def insert_listing(self, raw: dict, extra: dict, item_id: int, platform: str) -> Optional[int]:
+        offer_id = extra.get("offerId") or raw.get("itemId")
+        price_cents     = utils._parse_usd_cents(raw.get("price", {}).get("USD"))
+        suggested_cents = utils._parse_usd_cents(raw.get("suggestedPrice", {}).get("USD"))
+
+        trade_lock_secs: Optional[int] = extra.get("tradeLockDuration")
+        settlement_raw: Optional[str]  = extra.get("settlementTime")
+        trade_lock_until: Optional[datetime] = None
+        if settlement_raw:
+            try:
+                trade_lock_until = datetime.fromisoformat(settlement_raw.replace("Z", "+00:00"))
+            except ValueError:
+                pass
+
+        stickers_raw  = extra.get("stickers") or []
+        stickers_data = utils._parse_sticker_slots(stickers_raw) if stickers_raw else None
+
+        instance = Listing(
+            offer_id                  = offer_id,
+            platform                  = platform,
+            item_id                   = item_id,
+            price_cents               = price_cents,
+            suggested_price_cents     = suggested_cents,
+            tradable                  = extra.get("tradable", True),
+            trade_lock_until          = trade_lock_until,
+            trade_lock_seconds        = trade_lock_secs,
+            stickers                  = stickers_data,
+            owner_id                  = raw.get("owner"),
+            owner_wallet              = raw.get("ownersBlockchainId"),
+            status                    = raw.get("status", "active"),
+            is_new                    = extra.get("isNew", False),
+            fetched_at                = datetime.now(timezone.utc),
+            first_seen_at             = datetime.now(timezone.utc),
+            last_seen_at              = datetime.now(timezone.utc),
+        )
+
+        return self.merge_instance(instance)
+    
+
+
+    def ingest_items(self, items: list[dict], platform: str) -> tuple[int, int]:
+        """
+        Parse and upsert a batch of raw DMarket listing dicts.
+        Returns (inserted_or_updated_items, skipped).
+        """
+        ok = skipped = 0
+        for raw in items:
+            extra = raw.get("extra") or {}
+            try:
+                item_id = self.insert_item(raw, extra)
+                self.insert_listing(raw, extra, item_id, platform)
+                ok += 1
+            except Exception as exc:
+                logger.warning("Failed to ingest item %s: %s", raw.get("itemId"), exc)
+                skipped += 1
+        return ok, skipped
