@@ -77,10 +77,10 @@ class DMarketClient:
         if cursor:
             params["cursor"] = cursor
 
-        data, error = self.call("GET", "/exchange/v1/market/items", payload=params)
+        data, error = self.call("GET", "/marketplace-api/v2/offers", payload=params)
         if error:
             raise RuntimeError(f"DMarket API error: {error}")
 
-        items  = data.get("objects") or []
+        items  = data.get("items") or []
         cursor = data.get("cursor")        # None / "" means no more pages
         return items, cursor or None

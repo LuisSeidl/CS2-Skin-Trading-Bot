@@ -305,7 +305,7 @@ class Listing(Base):
               postgresql_where=text("tradable = FALSE")),
     )
 
-    item: Mapped[Optional["Item"]] = relationship("Item", back_populates="listings")
+    item: Mapped[Optional["Item"]] = relationship("Item", back_populates="listings", cascade="all, delete")
 
 # ---------------------------------------------------------------------------
 # Opportunity
@@ -356,7 +356,7 @@ class Opportunity(Base):
               postgresql_ops={"detected_at": "DESC"}),
     )
 
-    trades: Mapped[list["Trade"]] = relationship("Trade", back_populates="opportunity")
+    trades: Mapped[list["Trade"]] = relationship("Trade", back_populates="opportunity", cascade="all, delete")
 
 # ---------------------------------------------------------------------------
 # Platform
@@ -482,8 +482,8 @@ class Trade(Base):
               postgresql_where=text("parent_trade_id IS NOT NULL")),
     )
 
-    opportunity: Mapped[Optional["Opportunity"]] = relationship("Opportunity", back_populates="trades")
-    item:        Mapped[Optional["Item"]]        = relationship("Item",        back_populates="trades")
+    opportunity: Mapped[Optional["Opportunity"]] = relationship("Opportunity", back_populates="trades", cascade="all, delete")
+    item:        Mapped[Optional["Item"]]        = relationship("Item",        back_populates="trades", cascade="all, delete")
 
     child_trades: Mapped[list["Trade"]]   = relationship(
         "Trade",

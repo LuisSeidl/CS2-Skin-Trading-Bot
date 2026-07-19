@@ -1,10 +1,10 @@
 from typing import Optional
 import helpers.utils as utils
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import create_engine, select, and_, update, delete, func
 from sqlalchemy.orm import Session, sessionmaker, joinedload
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from helpers.logger import logger
+from helpers.logger import LoggingSystem
 from entities import Base, Weapon, Collection, FloatRange, Item, Listing
 from helpers.populateFloatRange import FloatRangePopulator
 
@@ -16,7 +16,7 @@ class DatabaseClient:
         self.session = Session(self.engine)
         self.floatRangePopulator = FloatRangePopulator()
 
-    def __shutdown__(self):
+    def stopFloatRangePopulator(self):
         self.floatRangePopulator.__shutdown__()
 
     def __return_pk(self, instance):
@@ -26,6 +26,17 @@ class DatabaseClient:
             return instance.id
         elif type(instance) == Listing:
             return instance.id
+
+    def cleanup_listings(self, window: timedelta) -> None:
+        session = self.session
+        try:
+            stmt = delete(Listing).where(Listing.last_seen_at < (datetime.now() - window))
+            result = session.execute(stmt)
+            session.commit()
+            LoggingSystem.cleanup.info(f"Cleaned up {result.rowcount} Listings")
+        except Exception as e:
+            session.rollback()
+            raise e
 
     def merge_instance(self, instance):
         session = self.session
@@ -43,7 +54,7 @@ class DatabaseClient:
             session.add_all(instances)
             session.commit()
         except Exception as e:
-            logger.error("Inserting Instaces threw an exception: " + e)
+            LoggingSystem.app.error("Inserting Instaces threw an exception: " + e)
             session.rollback()
         finally:
             session.close()
@@ -56,7 +67,7 @@ class DatabaseClient:
                 session.commit()
         except Exception as e:
             session.rollback()
-            logger.warning(f"Error occured for instance: {instance}")
+            LoggingSystem.app.warning(f"Error occured for instance: {instance}")
             raise e
         finally:
             session.close()
@@ -74,7 +85,7 @@ class DatabaseClient:
                 session.rollback()
                 raise e
             finally:
-                logger.info(f"Finished updating instances: {instance}")
+                LoggingSystem.app.info(f"Finished updating instances: {instance}")
 
     def merge_one_by_one(self, instances: list):
         """Inserts or updates the given instances in the database """
@@ -88,7 +99,7 @@ class DatabaseClient:
                 session.rollback()
                 raise e
             finally:
-                logger.info(f"Finished updating instances: {instance}")
+                LoggingSystem.app.info(f"Finished updating instances: {instance}")
 
 
     def __ensure_collection(self, name: str) -> str:
@@ -99,7 +110,7 @@ class DatabaseClient:
         new = Collection(name = name, type="collection")
         self.session.add(new)
         self.session.flush()
-        logger.info("Created new collection: %s", name)
+        LoggingSystem.app.info("Created new collection: %s", name)
         return name
 
     def __ensure_float_range(self, item: FloatRange) -> str:
@@ -109,7 +120,7 @@ class DatabaseClient:
             return row.name
         self.session.add(item)
         self.session.flush()
-        logger.info("Created new float range: %s", item.name)
+        LoggingSystem.app.info("Created new float range: %s", item.name)
         return item.name
 
     def __ensure_weapon(self, raw: dict, extra: dict) -> Optional[str]:
@@ -120,7 +131,7 @@ class DatabaseClient:
         # Ensure required tables exist and create weapon skin
         quality_val = utils._parse_quality(extra.get("quality"))
         if not quality_val:
-            logger.warning(f"Skipping item with unknown quality: {raw.get("title")}",)
+            LoggingSystem.app.warning(f"Skipping item with unknown quality: {raw.get("title")}",)
             return None
         
         # Check if the collection exists and create if not
@@ -155,13 +166,13 @@ class DatabaseClient:
         """Based on the weapon and float value gets the corresponding exterior type"""
         weapon_res = self.session.scalar(select(Weapon).where(Weapon.full_name == weaponName))
         if weapon_res is None:
-            logger.warning(f"No weapon {weaponName} exists in Weapon Table")
+            LoggingSystem.app.warning(f"No weapon {weaponName} exists in Weapon Table")
             return None
 
         float_range = self.session.scalar(select(FloatRange).where(Weapon.float_range_name == weapon_res.float_range_name))
 
         if float_range is None:
-            logger.warning(f"No float range {float_range} for weapon {weaponName} exists in FloatRange Table")
+            LoggingSystem.app.warning(f"No float range {float_range} for weapon {weaponName} exists in FloatRange Table")
             return None
         
         ext_type = float_range.findExteriorType(floatValue)
@@ -175,7 +186,7 @@ class DatabaseClient:
         # 1. check if the underlying weapon exists and create if not
         weapon_val = self.__ensure_weapon(raw, extra)
         if not weapon_val:
-            logger.warning(f"Failed to find weapon: {weapon_val}")
+            LoggingSystem.app.warning(f"Failed to find weapon: {weapon_val}")
 
         # Parse classId — DMarket format "8529624800:8246937075"
         class_id_full: str = raw.get("classId", "")
@@ -203,8 +214,8 @@ class DatabaseClient:
         return self.merge_instance(instance)
 
     def insert_listing(self, raw: dict, extra: dict, item_id: int, platform: str) -> Optional[int]:
-        offer_id = extra.get("offerId") or raw.get("itemId")
-        price_cents     = utils._parse_usd_cents(raw.get("price", {}).get("USD"))
+        offer_id = extra.get("offerId") or raw.get("offerId") or raw.get("itemId")
+        price_cents     = utils._parse_usd_cents(raw.get("priceCents"))
         suggested_cents = utils._parse_usd_cents(raw.get("suggestedPrice", {}).get("USD"))
 
         trade_lock_secs: Optional[int] = extra.get("tradeLockDuration")
@@ -255,6 +266,6 @@ class DatabaseClient:
                 self.insert_listing(raw, extra, item_id, platform)
                 ok += 1
             except Exception as exc:
-                logger.warning("Failed to ingest item %s: %s", raw.get("itemId"), exc)
+                LoggingSystem.app.warning("Failed to ingest item %s: %s", raw.get("itemId"), exc)
                 skipped += 1
         return ok, skipped
