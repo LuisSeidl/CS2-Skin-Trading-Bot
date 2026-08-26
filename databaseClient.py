@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, select, and_, update, delete, func
 from sqlalchemy.orm import Session, sessionmaker, joinedload
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from helpers.logger import LoggingSystem
-from entities import Base, Weapon, Collection, FloatRange, Item, Listing
+from entities import Base, Weapon, Collection, FloatRange, Item, Listing, StandardizedResult
 from helpers.populateFloatRange import FloatRangePopulator
 
 class DatabaseClient:
@@ -122,46 +122,7 @@ class DatabaseClient:
         self.session.flush()
         LoggingSystem.app.info("Created new float range: %s", item.name)
         return item.name
-
-    def __ensure_weapon(self, raw: dict, extra: dict) -> Optional[str]:
-        """Checks if the current weapon & required tables exist, creates if not, updates if yes. in both scenarios returns the primary key on success"""
-
-        full_name_val = extra.get("name") or raw.get("title")
-
-        # Ensure required tables exist and create weapon skin
-        quality_val = utils._parse_quality(extra.get("quality"))
-        if not quality_val:
-            LoggingSystem.app.warning(f"Skipping item with unknown quality: {raw.get("title")}",)
-            return None
-        
-        # Check if the collection exists and create if not
-        collections_raw: list[str] = extra.get("collection") or []
-        if collections_raw:
-            raw_name = collections_raw[0].strip() if collections_raw else ""
-            collection_name = self.__ensure_collection(raw_name) if raw_name else None
-        
-
-        # Get float range, check if it exists and create if not
-        float_range_name = "NO_FLOAT_RANGE"
-        float_range = self.floatRangePopulator.get_float_range(full_name_val)
-        if float_range:
-             float_range_name = self.__ensure_float_range(float_range)
-            
-        # Create Skin
-        instance = Weapon(
-            full_name= full_name_val,
-            name = str(full_name_val).split("|")[0],
-            skin = str(full_name_val).split("|")[1],
-            weapon_type = extra.get("itemType", "unknown"),
-            quality = quality_val,
-            category_path = extra.get("categoryPath"),
-            collection_name = collection_name,
-            float_range_name = float_range_name
-        )
-
-        return self.merge_instance(instance)
-
-
+    
     def __get_ExteriorType(self, weaponName: str, floatValue: float) -> Optional[str]:
         """Based on the weapon and float value gets the corresponding exterior type"""
         weapon_res = self.session.scalar(select(Weapon).where(Weapon.full_name == weaponName))
@@ -180,22 +141,22 @@ class DatabaseClient:
         return ext_type.name 
 
 
-    def insert_item(self, raw: dict, extra: dict) -> Optional[int]:
+    def insert_item(self, attributes: dict, cs2: dict) -> Optional[int]:
         """Inserts an item from DMarket, merges if it exists already"""
 
         # 1. check if the underlying weapon exists and create if not
-        weapon_val = self.__ensure_weapon(raw, extra)
+        weapon_val = self.__ensure_weapon(attributes, cs2)
         if not weapon_val:
             LoggingSystem.app.warning(f"Failed to find weapon: {weapon_val}")
 
         # Parse classId — DMarket format "8529624800:8246937075"
-        class_id_full: str = raw.get("classId", "")
+        class_id_full: str = attributes.get("classId", "")
         steam_class_id = class_id_full.split(":")[0] if ":" in class_id_full else class_id_full
 
-        is_stattrak = "stattrak" in raw.get("title", "").lower()
-        is_souvenir = "souvenir" in raw.get("title", "").lower()
+        is_stattrak = "stattrak" in attributes.get("title", "").lower()
+        is_souvenir = "souvenir" in attributes.get("title", "").lower()
 
-        float_val = extra.get("floatValue")
+        float_val = cs2.get("float")
         ext_type = self.__get_ExteriorType(weapon_val, float_val)
 
         instance = Item(
@@ -204,22 +165,21 @@ class DatabaseClient:
             exterior_type = ext_type,
             is_stattrak = is_stattrak,
             is_souvenir = is_souvenir,
-            paint_index = extra.get("paintIndex"),
+            paint_index = cs2.get("paintIndex"),
             steam_class_id   = steam_class_id,
-            dmarket_product_id = raw.get("productId"),
-            image_url        = raw.get("image"),
-            name_color       = extra.get("nameColor"),
+            dmarket_product_id = attributes.get("productId"),
+            image_url        = attributes.get("imageUri"),
+            name_color       = attributes.get("nameColor"),
         )
 
         return self.merge_instance(instance)
 
-    def insert_listing(self, raw: dict, extra: dict, item_id: int, platform: str) -> Optional[int]:
-        offer_id = extra.get("offerId") or raw.get("offerId") or raw.get("itemId")
+    def insert_listing(self, raw: dict, attributes: dict, cs2: dict, item_id: int, platform: str) -> Optional[int]:
+        offer_id = raw.get("offerId")
         price_cents     = utils._parse_usd_cents(raw.get("priceCents"))
-        suggested_cents = utils._parse_usd_cents(raw.get("suggestedPrice", {}).get("USD"))
 
-        trade_lock_secs: Optional[int] = extra.get("tradeLockDuration")
-        settlement_raw: Optional[str]  = extra.get("settlementTime")
+        trade_lock_secs: Optional[int] = attributes.get("tradeLockDuration")
+        settlement_raw: Optional[str]  = attributes.get("settlementTime")
         trade_lock_until: Optional[datetime] = None
         if settlement_raw:
             try:
@@ -227,7 +187,7 @@ class DatabaseClient:
             except ValueError:
                 pass
 
-        stickers_raw  = extra.get("stickers") or []
+        stickers_raw  = cs2.get("stickers") or []
         stickers_data = utils._parse_sticker_slots(stickers_raw) if stickers_raw else None
 
         instance = Listing(
@@ -235,15 +195,15 @@ class DatabaseClient:
             platform                  = platform,
             item_id                   = item_id,
             price_cents               = price_cents,
-            suggested_price_cents     = suggested_cents,
-            tradable                  = extra.get("tradable", True),
+            suggested_price_cents     = 0,
+            tradable                  = attributes.get("tradable", True),
             trade_lock_until          = trade_lock_until,
             trade_lock_seconds        = trade_lock_secs,
             stickers                  = stickers_data,
-            owner_id                  = raw.get("owner"),
-            owner_wallet              = raw.get("ownersBlockchainId"),
-            status                    = raw.get("status", "active"),
-            is_new                    = extra.get("isNew", False),
+            owner_id                  = attributes.get("owner"),
+            owner_wallet              = attributes.get("steamAssetId"),
+            status                    = attributes.get("status", "active"),
+            is_new                    = attributes.get("isNew", False),
             fetched_at                = datetime.now(timezone.utc),
             first_seen_at             = datetime.now(timezone.utc),
             last_seen_at              = datetime.now(timezone.utc),
@@ -260,12 +220,66 @@ class DatabaseClient:
         """
         ok = skipped = 0
         for raw in items:
-            extra = raw.get("extra") or {}
+            attributes = raw.get("attributes") or {}
+            cs2 = attributes.get("cs2") or {}
             try:
-                item_id = self.insert_item(raw, extra)
-                self.insert_listing(raw, extra, item_id, platform)
+                item_id = self.insert_item(attributes, cs2)
+                self.insert_listing(raw, attributes,cs2, item_id, platform)
                 ok += 1
             except Exception as exc:
-                LoggingSystem.app.warning("Failed to ingest item %s: %s", raw.get("itemId"), exc)
+                LoggingSystem.app.warning("Failed to ingest item %s: %s", attributes.get("id"), exc)
                 skipped += 1
         return ok, skipped
+
+
+    def __ensure_weapon(self, weapon: Weapon) -> Optional[str]:
+        """Makes sure that the data needed for the weapon exist and merges the weapon"""
+        if weapon.collection_name:
+            weapon.collection_name = self.__ensure_collection(weapon.collection_name)
+
+        float_range = self.floatRangePopulator.get_float_range(weapon.full_name)
+        if float_range:
+             weapon.float_range_name = self.__ensure_float_range(float_range)
+
+        return self.merge_instance(weapon)
+
+    def insert_item(self, item: Item) -> Optional[int]:
+        """Inserts an item from DMarket, merges if it exists already"""
+
+        # 1. check if the underlying weapon exists and create if not
+        weapon_val = self.__ensure_weapon(attributes, cs2)
+        if not weapon_val:
+            LoggingSystem.app.warning(f"Failed to find weapon: {weapon_val}")
+
+        # Parse classId — DMarket format "8529624800:8246937075"
+        class_id_full: str = attributes.get("classId", "")
+        steam_class_id = class_id_full.split(":")[0] if ":" in class_id_full else class_id_full
+
+        is_stattrak = "stattrak" in attributes.get("title", "").lower()
+        is_souvenir = "souvenir" in attributes.get("title", "").lower()
+
+        float_val = cs2.get("float")
+        ext_type = self.__get_ExteriorType(weapon_val, float_val)
+
+        instance = Item(
+            weapon_full_name = weapon_val,
+            float_value = float_val,
+            exterior_type = ext_type,
+            is_stattrak = is_stattrak,
+            is_souvenir = is_souvenir,
+            paint_index = cs2.get("paintIndex"),
+            steam_class_id   = steam_class_id,
+            dmarket_product_id = attributes.get("productId"),
+            image_url        = attributes.get("imageUri"),
+            name_color       = attributes.get("nameColor"),
+        )
+
+        return self.merge_instance(instance)
+
+
+    def insertResult(self, result: StandardizedResult):
+        weapon_val = self.__ensure_weapon(result.weapon)
+        if not weapon_val:
+            LoggingSystem.app.warning(f"Failed to find weapon: {weapon_val}")
+
+        result.item.exterior_type = self.__get_ExteriorType(weapon_val, result.)

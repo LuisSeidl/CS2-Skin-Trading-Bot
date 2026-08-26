@@ -4,6 +4,7 @@ import requests
 from typing import Optional
 from urllib.parse import quote, urlencode
 from nacl.bindings import crypto_sign
+from entities import Weapon, Item, Listing, StandardizedResult
 
 # DMarket fetch config
 GAME_ID       = "a8db"          # CS2
@@ -84,3 +85,37 @@ class DMarketClient:
         items  = data.get("items") or []
         cursor = data.get("cursor")        # None / "" means no more pages
         return items, cursor or None
+
+
+
+    def buildWeapon(self, attributes: dict, cs2: dict) -> Weapon:
+        full_name_val = attributes.get("name")
+        quality_val = cs2.get("quality")
+
+        # Collection will be ensured in databaseClient
+        collection_raw = cs2.get("collection") or []
+        if collection_raw:
+            collection_name = collection_raw[0].strip() if collection_raw[0] else None
+
+        #Float range will be ensured in databaseClient
+        float_range_name = "NO_FLOAT_RANGE"
+
+        return Weapon(
+            full_name= full_name_val,
+            name = str(full_name_val).split("|")[0],
+            skin = str(full_name_val).split("|")[1],
+            weapon_type = cs2.get("itemType", "unknown"),
+            quality = quality_val,
+            category_path = attributes.get("categoryPath"),
+            collection_name = collection_name,
+            float_range_name = float_range_name
+        )
+
+    def buildItem(self, attributes: dict, cs2: dict) -> Item:
+
+
+    def standardizeData(self, attributes: dict, cs2: dict) -> list[StandardizedResult]:
+
+        #1. 
+
+    

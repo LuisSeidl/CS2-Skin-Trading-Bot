@@ -47,6 +47,7 @@ class PlatformName(str, enum.Enum):
 
 
 class ExteriorType(str, enum.Enum):
+    unspecified    = "unspecified"
     factory_new    = "factory new"
     minimal_wear   = "minimal wear"
     field_tested   = "field-tested"
@@ -56,14 +57,24 @@ class ExteriorType(str, enum.Enum):
 
 
 class SkinQuality(str, enum.Enum):
+    unspecified   = "unspecified"
     consumer      = "consumer"
     industrial    = "industrial"
     mil_spec      = "mil_spec"
     restricted    = "restricted"
     classified    = "classified"
     covert        = "covert"
+    distinguished = "distinguished"
+    exceptional   = "exceptional"
+    superior      = "superior"
+    master        = "master"
+    base_grade    = "base_grade"
     extraordinary = "extraordinary"
+    high_grade    = "high_grade"
+    remarkable    = "remarkable"
+    exotic        = "exotic"
     contraband    = "contraband"
+    stock         = "stock"
 
 
 class OpportunityType(str, enum.Enum):
@@ -108,10 +119,6 @@ _QUALITY_MAP: dict[str, str] = {
     "covert":           "covert",
     "extraordinary":    "extraordinary",
     "contraband":       "contraband",
-    # Souvenir skins still have a rarity — DMarket sends "souvenir" as the
-    # category, not the quality. The actual quality is in extra.quality but
-    # sometimes missing. Treat as unknown so they are skipped for now,
-    # or map to the underlying rarity if you want to store souvenirs.
 }
 
 
@@ -533,3 +540,19 @@ class TradeUpRoute(Base):
     )
 
     collection: Mapped[Optional["Collection"]] = relationship("Collection", back_populates="trade_up_routes")
+
+
+
+class StandardizedResult:
+    weapon: Weapon
+    item: Item
+    listing: Listing
+
+    def getweapon(self) -> Weapon:
+        return self.weapon
+
+    def getItem(self) -> Item:
+        return self.item
+
+    def getListing(self) -> Listing:
+        return self.listing

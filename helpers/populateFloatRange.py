@@ -6,6 +6,7 @@ from entities import FloatRange, ExteriorType
 
 FLOAT_CALC_URL = "https://cs2floatchecker.com/tools/float-database"
 PLACEHOLDER = "Search for a skin (e.g., AK-47 Redline, AWP Dragon Lore)..."
+IGNORED_EXTERIORS = [ExteriorType.not_painted, ExteriorType.unspecified]
 
 class FloatRangePopulator():
     
@@ -53,7 +54,7 @@ class FloatRangePopulator():
         conditions_list_elem.wait_for(state="visible", timeout=5000)
 
         for exterior in ExteriorType:
-            if exterior == ExteriorType.not_painted:
+            if exterior in IGNORED_EXTERIORS:
                 continue
             
             title_name = exterior.value.title()
@@ -70,7 +71,7 @@ class FloatRangePopulator():
         float_val_div = card.locator('div[class="bg-secondary relative mb-4 h-8 overflow-hidden rounded-lg"]')
 
         for exterior in ExteriorType:
-            if exterior == ExteriorType.not_painted:
+            if exterior in IGNORED_EXTERIORS:
                 continue
 
             if extracted_data.get(exterior.name) is not None:

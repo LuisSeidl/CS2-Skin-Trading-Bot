@@ -10,14 +10,10 @@ from databaseClient import DatabaseClient
 
 KEYS_FILE = Path("keys.json") 
 
-with open(KEYS_FILE) as f:
-    data = json.load(f)
-    DB_URL = data["DATABASE"]
-
 def load_keys(path: Path) -> tuple[str, str]:
     with open(path) as f:
         data = json.load(f)
-    return data["DMARKET_PUBLIC"], data["DMARKET_PRIVATE"], data["DATABASE"]
+    return data["DMARKET_PUBLIC"], data["DMARKET_PRIVATE"], data["DB_LOCAL"]
 
 # DMarket fetch config
 GAME_ID       = "a8db"          # CS2
