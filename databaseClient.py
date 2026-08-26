@@ -38,6 +38,17 @@ class DatabaseClient:
             session.rollback()
             raise e
 
+    def cleanup_items(self, window: timedelta)-> None:
+        session = self.session
+        try:
+            stmt = delete(Item).where(Item.updated_at < (datetime.now() - window))
+            result = session.execute(stmt)
+            session.commit()
+            LoggingSystem.cleanup.info(f"Cleaned up {result.rowcount} Items")
+        except Exception as e:
+            session.rollback()
+            raise e
+        
     def merge_instance(self, instance):
         session = self.session
         try:
@@ -282,4 +293,4 @@ class DatabaseClient:
         if not weapon_val:
             LoggingSystem.app.warning(f"Failed to find weapon: {weapon_val}")
 
-        result.item.exterior_type = self.__get_ExteriorType(weapon_val, result.)
+        result.item.exterior_type = self.__get_ExteriorType(weapon_val, result.item.float_value)

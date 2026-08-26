@@ -112,10 +112,10 @@ class DMarketClient:
         )
 
     def buildItem(self, attributes: dict, cs2: dict) -> Item:
-
+        pass
 
     def standardizeData(self, attributes: dict, cs2: dict) -> list[StandardizedResult]:
-
+        pass
         #1. 
 
     
