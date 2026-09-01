@@ -31,9 +31,8 @@ class Bot:
 
 
     def cleanUp(self, listings_before: timedelta):
-        """Recursively deletes all stored listings and items with a last_seen_at / updated_at below today - listings_before"""
+        """Recursively deletes all stored listings with a last_seen_at below today - listings_before"""
         self.dbClient.cleanup_listings(listings_before)
-        self.dbClient.cleanup_items(listings_before)
 
 
     def mainApplication(self):

@@ -15,4 +15,4 @@ if __name__ == "__main__":
     #    time.sleep(1)
 
     bot.cleanUp(timedelta(1))
-    #bot.mainApplication()
+    bot.mainApplication()

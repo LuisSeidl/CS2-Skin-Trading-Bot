@@ -1,0 +1,25 @@
+{
+	"name": "CS2 Trading Bot Dev Environment",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"context": ".."
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python", // Offizielle Python-Unterstützung
+				"ms-python.vscode-pylance", // IntelliSense und Autovervollständigung
+				"ms-azuretools.vscode-docker" // Docker-Verwaltung direkt in VS Code
+			],
+			"settings": {
+				"python.defaultInterpreterPath": "/usr/bin/python3",
+				"python.analysis.typeCheckingMode": "basic"
+			}
+		}
+	},
+	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+	"workspaceFolder": "/workspace",
+	"postCreateCommand": "playwright install --with-deps",
+    "overrideCommand": true,
+	"remoteUser": "root"
+}
