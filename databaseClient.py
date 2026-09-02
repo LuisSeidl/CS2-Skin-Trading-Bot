@@ -1,7 +1,7 @@
 from typing import Optional
 import helpers.utils as utils
 from datetime import datetime, timezone, timedelta
-from sqlalchemy import create_engine, select, and_, update, delete, func
+from sqlalchemy import UUID, create_engine, select, and_, update, delete, func
 from sqlalchemy.orm import Session, sessionmaker, joinedload
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from helpers.logger import LoggingSystem
@@ -123,7 +123,7 @@ class DatabaseClient:
         LoggingSystem.app.info("Created new float range: %s", item.name)
         return item.name
     
-    def __get_ExteriorType(self, weaponName: str, floatValue: float) -> Optional[str]:
+    def __getExteriorType(self, weaponName: str, floatValue: float) -> Optional[str]:
         """Based on the weapon and float value gets the corresponding exterior type"""
         weapon_res = self.session.scalar(select(Weapon).where(Weapon.full_name == weaponName))
         if weapon_res is None:
@@ -145,7 +145,7 @@ class DatabaseClient:
         """Inserts an item from DMarket, merges if it exists already"""
 
         # 1. check if the underlying weapon exists and create if not
-        weapon_val = self.__ensure_weapon(attributes, cs2)
+        weapon_val = self.__insertWeapon(attributes, cs2)
         if not weapon_val:
             LoggingSystem.app.warning(f"Failed to find weapon: {weapon_val}")
 
@@ -157,7 +157,7 @@ class DatabaseClient:
         is_souvenir = "souvenir" in attributes.get("title", "").lower()
 
         float_val = cs2.get("float")
-        ext_type = self.__get_ExteriorType(weapon_val, float_val)
+        ext_type = self.__getExteriorType(weapon_val, float_val)
 
         instance = Item(
             weapon_full_name = weapon_val,
@@ -232,22 +232,11 @@ class DatabaseClient:
         return ok, skipped
 
 
-    def __ensure_weapon(self, weapon: Weapon) -> Optional[str]:
-        """Makes sure that the data needed for the weapon exist and merges the weapon"""
-        if weapon.collection_name:
-            weapon.collection_name = self.__ensure_collection(weapon.collection_name)
-
-        float_range = self.floatRangePopulator.get_float_range(weapon.full_name)
-        if float_range:
-             weapon.float_range_name = self.__ensure_float_range(float_range)
-
-        return self.merge_instance(weapon)
-
     def insert_item(self, item: Item) -> Optional[int]:
         """Inserts an item from DMarket, merges if it exists already"""
 
         # 1. check if the underlying weapon exists and create if not
-        weapon_val = self.__ensure_weapon(attributes, cs2)
+        weapon_val = self.__insertWeapon(item.weapon_full_name)
         if not weapon_val:
             LoggingSystem.app.warning(f"Failed to find weapon: {weapon_val}")
 
@@ -259,7 +248,7 @@ class DatabaseClient:
         is_souvenir = "souvenir" in attributes.get("title", "").lower()
 
         float_val = cs2.get("float")
-        ext_type = self.__get_ExteriorType(weapon_val, float_val)
+        ext_type = self.__getExteriorType(weapon_val, float_val)
 
         instance = Item(
             weapon_full_name = weapon_val,
@@ -276,10 +265,61 @@ class DatabaseClient:
 
         return self.merge_instance(instance)
 
+##################################################################################
+######################## NEW FUNCTIONS ###########################################
+##################################################################################
 
-    def insertResult(self, result: StandardizedResult):
-        weapon_val = self.__ensure_weapon(result.weapon)
-        if not weapon_val:
-            LoggingSystem.app.warning(f"Failed to find weapon: {weapon_val}")
+    def __insertWeapon(self, weapon: Weapon) -> Optional[str]:
+        """Makes sure that the data needed for the weapon exist and merges the weapon"""
+        if weapon.collection_name:
+            weapon.collection_name = self.__ensure_collection(weapon.collection_name)
 
-        result.item.exterior_type = self.__get_ExteriorType(weapon_val, result.)
+        float_range = self.floatRangePopulator.get_float_range(weapon.full_name)
+        if float_range:
+             weapon.float_range_name = self.__ensure_float_range(float_range)
+
+        #TODO: check if function works as expected
+        return self.merge_instance(weapon)
+
+
+    def __insertItem(self, item: Item) -> Optional[int]:
+        """Inserts Item, merges on item attributes"""
+        # TODO: write function
+        #TODO: Update Item, shouldn't be listing specific but should connect each weapon with different attributes
+        # like the floatt_value, stattrak... but doesn't need a dmarket_product_id, updated_at ... 
+        # should include things for dopplers etc (see what dmarket api returns as possibilities)
+
+        return item.id
+
+    def __insertListing(self, listing: Listing)-> Optional[int]:
+        """Inserts a specific listing, merges based on offerId"""
+        #TODO: write function, should overwrite last_seen_at on merge
+        return listing.id
+
+    
+    def insertResult(self, result: StandardizedResult) -> int:
+        """
+        Inserts one StandardizedResult based on Weapon, Item, Listing
+        Returns 1 on error and 0 on success 
+        """
+        weaponVal = self.__insertWeapon(result.weapon)
+        if not weaponVal:
+            LoggingSystem.app.warning(f"Failed to find weapon: {weaponVal}")
+            return 1
+        
+        result.item.exterior_type = self.__getExteriorType(weaponVal, result.item.float_value)
+        result.item.weapon_full_name = weaponVal
+        itemId = self.__insertItem(result.item)
+
+        if not itemId:
+            LoggingSystem.app.warning(f"Failed to insert item {result.item.id}")
+            return 1
+        
+        result.listing.item_id = itemId
+        listingId = self.__insertListing(result.listing)
+
+        if not listingId:
+            LoggingSystem.app.warning(f"Failed to insert listing {result.listing.id}")
+            return 1
+
+        return 0

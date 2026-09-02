@@ -6,6 +6,7 @@ from urllib.parse import quote, urlencode
 from nacl.bindings import crypto_sign
 from entities import Weapon, Item, Listing, StandardizedResult
 
+#TODO: adapt to interface
 # DMarket fetch config
 GAME_ID       = "a8db"          # CS2
 LIMIT = 10
