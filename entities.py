@@ -47,6 +47,7 @@ class PlatformName(str, enum.Enum):
 
 
 class ExteriorType(str, enum.Enum):
+    uncalculated   = "uncalculated"
     unspecified    = "unspecified"
     factory_new    = "factory new"
     minimal_wear   = "minimal wear"
@@ -56,7 +57,7 @@ class ExteriorType(str, enum.Enum):
     not_painted    = "not painted"
 
 
-class SkinQuality(str, enum.Enum):
+class QualityType(str, enum.Enum):
     unspecified   = "unspecified"
     consumer      = "consumer"
     industrial    = "industrial"
@@ -76,6 +77,23 @@ class SkinQuality(str, enum.Enum):
     contraband    = "contraband"
     stock         = "stock"
 
+class WeaponType(str, enum.Enum):
+    #TODO: Add more once we know all of them
+    equipment       = "equipment"
+    pistol          = "pistol"
+    sniper_rifle    = "sniper rifle"
+    rifle           = "rifle"
+    smg             = "smg"
+    shotgun         = "shotgun"
+    knife           = "knife"
+
+class Marketplace(str, enum.Enum):
+    #TODO: add more
+    dmarket = "dmarket"
+
+class ListingStatus(str, enum.Enum):
+    #TODO: add more
+    default = "default"
 
 class OpportunityType(str, enum.Enum):
     snipe     = "snipe"
@@ -224,7 +242,6 @@ class Weapon(Base):
     skin:           Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     weapon_type:    Mapped[str] = mapped_column(Text, nullable=False)
     quality:        Mapped[str] = mapped_column(Text, nullable=False)
-    category_path:  Mapped[Optional[str]] = mapped_column(Text)
     collection_name:  Mapped[Optional[str]] = mapped_column(ForeignKey("collections.name"))
     float_range_name: Mapped[Optional[str]] = mapped_column(ForeignKey("float_ranges.name"))
 
@@ -251,10 +268,8 @@ class Item(Base):
     paint_index: Mapped[Optional[int]]     = mapped_column(Integer)
 
     steam_class_id:     Mapped[Optional[str]] = mapped_column(Text)
-    dmarket_product_id: Mapped[Optional[str]] = mapped_column(Text)
-
-    image_url:  Mapped[Optional[str]] = mapped_column(Text)
-    name_color: Mapped[Optional[str]] = mapped_column(Text)
+    marketplace: Mapped[Optional[str]] = mapped_column(Text)
+    marketplace_id: Mapped[Optional[str]] = mapped_column(Text)
 
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now(),
@@ -281,17 +296,14 @@ class Listing(Base):
     id:       Mapped[uuid.UUID]     = mapped_column(UUID(as_uuid=True), primary_key=True,
                                                      server_default=func.gen_random_uuid())
     offer_id: Mapped[str]           = mapped_column(Text, nullable=False)
-    platform: Mapped[str]           = mapped_column(String(20), nullable=False)
+    marketplace: Mapped[str]           = mapped_column(String(20), nullable=False)
     item_id:  Mapped[Optional[int]] = mapped_column(ForeignKey("items.id"))
     price_cents:           Mapped[int]           = mapped_column(Integer, nullable=False)
-    suggested_price_cents: Mapped[Optional[int]] = mapped_column(Integer)
     tradable:           Mapped[bool]               = mapped_column(Boolean, nullable=False, default=True)
     trade_lock_until:   Mapped[Optional[datetime]] = mapped_column()
     trade_lock_seconds: Mapped[Optional[int]]      = mapped_column(Integer)
     stickers:                  Mapped[Optional[Any]] = mapped_column(JSONB)
-    sticker_total_value_cents: Mapped[Optional[int]] = mapped_column(Integer)
     owner_id:     Mapped[Optional[str]] = mapped_column(Text)
-    owner_wallet: Mapped[Optional[str]] = mapped_column(Text)
     status: Mapped[str]  = mapped_column(Text, nullable=False, default="active")
     is_new: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     fetched_at:    Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
@@ -547,6 +559,11 @@ class StandardizedResult:
     weapon: Weapon
     item: Item
     listing: Listing
+
+    def __init__(self, weapon: Weapon, item: Item, listing: Listing) -> None:
+        self.weapon = weapon
+        self.item = item
+        self.listing = listing
 
     def getweapon(self) -> Weapon:
         return self.weapon

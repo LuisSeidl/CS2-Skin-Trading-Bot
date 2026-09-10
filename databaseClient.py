@@ -306,9 +306,11 @@ class DatabaseClient:
         if not weaponVal:
             LoggingSystem.app.warning(f"Failed to find weapon: {weaponVal}")
             return 1
-        
-        result.item.exterior_type = self.__getExteriorType(weaponVal, result.item.float_value)
-        result.item.weapon_full_name = weaponVal
+
+        if result.item.exterior_type is None:
+            result.item.exterior_type = self.__getExteriorType(weaponVal, result.item.float_value)
+            result.item.weapon_full_name = weaponVal
+
         itemId = self.__insertItem(result.item)
 
         if not itemId:

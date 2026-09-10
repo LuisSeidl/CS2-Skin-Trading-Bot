@@ -4,21 +4,21 @@ from entities import StandardizedResult
 
 class ClientInterface(ABC):
     """Interface for API clients"""
-    keys = []
+    keys = dict()
     limit = 0
 
     @abstractmethod
-    def __init__(self, keys: list[str], limit: int)-> None:
+    def __init__(self, keys: dict, limit: int)-> None:
         """Initializes the client and assigns specific keys and values"""
 
     @abstractmethod
-    def __call(self, method: str, path: str, payload: dict | None = None)-> list | dict | None :
+    def __call(self, method: str, path: str, payload: dict | None = None):
         """
         Calls the Client, returns the result (json list / dict) or None, raises error if occurred
         """
 
     @abstractmethod
-    def __fetchMarketPage(self,limit: int, cursor: Optional[str] = None) -> tuple[list[dict], Optional[str]]:
+    def __fetchMarketPage(self, cursor: Optional[str] = None) -> tuple[list[dict], Optional[str]]:
         """
         Fetches one page of market information fromn the market
         Returns (items_list, next_cursor)
@@ -31,7 +31,7 @@ class ClientInterface(ABC):
         """
 
     @abstractmethod
-    def getData(self)->list[StandardizedResult]:
+    def getData(self, max_pages: int | None = None)->list[StandardizedResult]:
         """
         Entrypoint for Market-Clients
         1. Calls the API based on previously configured parameters

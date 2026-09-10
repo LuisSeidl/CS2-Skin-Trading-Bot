@@ -1,5 +1,5 @@
 from typing import Optional
-from entities import ExteriorType, _QUALITY_MAP
+from entities import ExteriorType, _QUALITY_MAP, QualityType
 import json
 import os
 from pathlib import Path
@@ -40,16 +40,16 @@ def _parse_exterior(raw: str | None) -> Optional[str]:
     """Normalise exterior string to ExteriorType enum value, or None."""
     if not raw:
         return None
-    raw = raw.lower().strip()
     valid = {e.value for e in ExteriorType}
     return raw if raw in valid else None
 
 
 def _parse_quality(raw: str | None) -> Optional[str]:
-    """Normalise quality string to SkinQuality enum value, or None."""
+    """Normalise quality string to QualityType enum value, or None."""
     if not raw:
         return None
-    return _QUALITY_MAP.get(raw.lower().strip())
+    valid = {e.value for e in QualityType}
+    return raw if raw in valid else None
 
 
 def _parse_sticker_slots(stickers_raw: list[dict]) -> list[dict]:
