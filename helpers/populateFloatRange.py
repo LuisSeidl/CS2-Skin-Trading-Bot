@@ -4,113 +4,74 @@ import enum
 from typing import Optional
 from entities import FloatRange, ExteriorType
 
-FLOAT_CALC_URL = "https://cs2floatchecker.com/tools/float-database"
-PLACEHOLDER = "Search for a skin (e.g., AK-47 Redline, AWP Dragon Lore)..."
-IGNORED_EXTERIORS = [ExteriorType.not_painted, ExteriorType.unspecified]
+FLOAT_CALC_URL = "https://stash.clash.gg/"
+IGNORED_EXTERIORS = [ExteriorType.uncalculated, ExteriorType.not_painted, ExteriorType.unspecified]
+
 
 class FloatRangePopulator():
     
     def __init__(self):
         self.playwright = sync_playwright().start()
-        self.browser = self.playwright.chromium.launch(headless=True)
+        self.browser = self.playwright.chromium.launch(headless=False)
         
         self.page = self.browser.new_page()
         self.page.goto(FLOAT_CALC_URL)
 
-        banner = self.page.get_by_role("button", name="Maybe Later")
-        banner.wait_for(state="visible", timeout=5000)
-        if banner.is_visible():
-            banner.click()
+        #banner = self.page.get_by_role("button", name="Maybe Later")
+        #banner.wait_for(state="visible", timeout=5000)
+        #if banner.is_visible():
+        #    banner.click()
 
     def __shutdown__(self):
         self.browser.close()
         self.playwright.stop()
 
-    def get_float_range(self, full_name: str) -> Optional[FloatRange]:
+    def get_float_range(self, weapon_name: str) -> Optional[FloatRange]:
         """returns the float range for the skin, returns None if no float range is found"""
-        textbox = self.page.get_by_placeholder(PLACEHOLDER)
-        textbox.fill(full_name)
 
-        # Get card containing the Item
-        card = self.page.locator('div[data-slot="card"]').filter(has_text=full_name).nth(0)
-        card.locator('.cursor-pointer').first.click()
-        
-        # Get min and max float values 
-        min_max_span = card.get_by_text("Float:")
-        min_float = min_max_span.locator("span.font-mono").nth(0).text_content()
-        max_float = min_max_span.locator("span.font-mono").nth(1).text_content()
-        min_val = float(min_float) if min_float else None
-        max_val = float(max_float) if max_float else None
+        #popup_close_button = self.page.locator(clash-popup)
 
-        if min_val is None or max_val is None:
-            return FloatRange(
-                name= "not_painted",
-                not_painted = True
-            )
+
+        # Search for Item
+        self.page.locator('.search-toggle').click()
+        search_bar = self.page.locator(".search-bar")
+        textbox = search_bar.get_by_placeholder("Search")
+        textbox.fill(weapon_name)
+
+        scroll_container = search_bar.locator(".scroll-container")
+        scroll_container.wait_for()
+        link = scroll_container.locator(".dropdown-item").nth(0)
+        link.click()
+
+        # Extract values
         extracted_data = {}
 
-        # Get all available Wear conditions
-        conditions_list_elem = self.page.locator('div[data-slot="card"]').filter(has_text=full_name)
-        conditions_list_elem.wait_for(state="visible", timeout=5000)
+        wear_bar = self.page.locator(".wear-bar.text-center")
 
         for exterior in ExteriorType:
             if exterior in IGNORED_EXTERIORS:
                 continue
-            
-            title_name = exterior.value.title()
-            element = conditions_list_elem.locator('span[data-slot="badge"]').get_by_text(title_name, exact=True)
-        
-            if not element.is_visible(timeout=0):
+
+            title_name = exterior.name.title()
+            slug = title_name[0] + title_name.split("_")[-1][0]
+            element = wear_bar.locator('div[data-container="body"]').get_by_text(f"{slug}", exact=False)
+
+            if element.count() > 0:
+                attribute = element.get_attribute("data-original-title")
+                if attribute:
+                    data = attribute.split(":")[1].strip().split("-")
+                extracted_data[exterior.name] = {
+                    "from": float(data[0]),
+                    "to": float(data[1])
+                }
+            else:
                 extracted_data[exterior.name] = {
                     "from": None,
                     "to": None
                 }
-                continue
-
-        # Get min and max for all exterior types which exist for this skin
-        float_val_div = card.locator('div[class="bg-secondary relative mb-4 h-8 overflow-hidden rounded-lg"]')
-
-        for exterior in ExteriorType:
-            if exterior in IGNORED_EXTERIORS:
-                continue
-
-            if extracted_data.get(exterior.name) is not None:
-                continue
-
-            title_name = exterior.value.title()
-
-            element = float_val_div.get_by_title(title_name)
-
-            if element.count() == 0:
-                continue
-
-            style_text = element.get_attribute("style")
-            
-            left_match = re.search(r"left:\s*(\d+.?\d*)%", style_text)
-            width_match = re.search(r"width:\s*(\d+.?\d*)%", style_text)
-
-            left_val = float(left_match.group(1)) if left_match else None
-            width_val = float(width_match.group(1)) if width_match else None
-
-            extracted_data[exterior.name] = {
-                "from": left_val / 100,
-                "to": (left_val+width_val) / 100
-            }
-
-
-        for item in extracted_data.items():
-            if item[1]["from"] is None:
-                continue
-
-            if item[1]["from"] < min_val:
-                item[1]["from"] = min_val
-
-            if item[1]["to"] > max_val:
-                item[1]["to"] = max_val
-
 
         return FloatRange(
-            name=full_name,
+            name=weapon_name,
             factory_new_from=extracted_data["factory_new"]["from"],
             factory_new_to=extracted_data["factory_new"]["to"],
             minimal_wear_from=extracted_data["minimal_wear"]["from"],

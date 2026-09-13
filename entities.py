@@ -86,7 +86,11 @@ class WeaponType(str, enum.Enum):
     smg             = "smg"
     shotgun         = "shotgun"
     knife           = "knife"
-
+    agent           = "agent"
+    sticker         = "sticker"
+    container       = "container"
+    machinegun      = "machinegun"
+    graffiti        = "graffiti"
 class Marketplace(str, enum.Enum):
     #TODO: add more
     dmarket = "dmarket"
@@ -311,10 +315,8 @@ class Listing(Base):
     last_seen_at:  Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
 
     __table_args__ = (
-        UniqueConstraint("platform", "offer_id", name="uq_listings_platform_offer"),
-        CheckConstraint("status IN ('active', 'sold', 'expired', 'cancelled')",
-                        name="ck_listings_status"),
-        Index("idx_listings_item_platform", "item_id", "platform",
+        UniqueConstraint("marketplace", "offer_id", name="uq_listings_platform_offer"),
+        Index("idx_listings_item_platform", "item_id", "marketplace",
               postgresql_where=text("status = 'active'")),
         Index("idx_listings_price",     "price_cents",
               postgresql_where=text("status = 'active'")),

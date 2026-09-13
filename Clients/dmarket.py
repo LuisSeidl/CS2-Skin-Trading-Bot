@@ -5,7 +5,6 @@ from typing import Optional
 from urllib.parse import quote, urlencode
 from nacl.bindings import crypto_sign
 from entities import Weapon, Item, Listing, StandardizedResult, WeaponType, QualityType, ExteriorType, Marketplace, ListingStatus
-from clientInterface import ClientInterface
 from helpers.logger import LoggingSystem
 from helpers.utils import _parse_quality, _parse_exterior
 
@@ -43,7 +42,7 @@ _DMARKET_EXTERIOR_MAP: dict[str, str] = {
 
 }
 
-class DMarketClient(ClientInterface):
+class DMarketClient():
     _ROOT = "https://api.dmarket.com"
     _PREFIX = "dmar ed25519 "
     _GAME_ID = "a8db"
@@ -120,10 +119,13 @@ class DMarketClient(ClientInterface):
 
         
     def __standardizeResult(self, content: dict | list) -> list[StandardizedResult]:
-        items = content[0]
+        items = content
         result = []
 
         for item in items:
+            if not isinstance(item, dict):
+                continue
+            
             attributes = item.get("attributes")
             cs2 = attributes.get("cs2")
 
@@ -137,6 +139,7 @@ class DMarketClient(ClientInterface):
 
             # Collection will be ensured in databaseClient
             collection_raw = cs2.get("collection") or []
+            collection_name = None
             if collection_raw:
                 collection_name = collection_raw[0].strip() if collection_raw[0] else None
 
@@ -147,17 +150,16 @@ class DMarketClient(ClientInterface):
             if weapon_type_raw:
                 weapon_type = WeaponType(weapon_type_raw).value
 
-            weapon = Weapon(
+            name_parts = str(full_name_val).split("|")
+            weaponInstance = Weapon(
                 full_name= full_name_val,
-                name = str(full_name_val).split("|")[0],
-                skin = str(full_name_val).split("|")[1],
+                name = name_parts[0].strip() if len(name_parts) > 0 else None,
+                skin = name_parts[1].strip() if len(name_parts) > 1 else None ,
                 weapon_type = weapon_type,
                 quality = quality,
-                category_path = attributes.get("categoryPath"),
                 collection_name = collection_name,
                 float_range_name = float_range_name
             )
-
             # 2. build item
             class_id_full: str = attributes.get("classId", "")
             steam_class_id = class_id_full.split(":")[0] if ":" in class_id_full else class_id_full
@@ -167,7 +169,7 @@ class DMarketClient(ClientInterface):
                 exterior_raw = _DMARKET_EXTERIOR_MAP.get(exterior_raw)
                 exterior = _parse_exterior(exterior_raw)
 
-            item = Item(
+            itemInstance = Item(
                 weapon_full_name = full_name_val,
                 float_value = cs2.get("float"),
                 exterior_type = exterior,
@@ -180,14 +182,12 @@ class DMarketClient(ClientInterface):
             )
 
             # 3. build listing
-            listing = Listing(
+            listingInstance = Listing(
                 offer_id = item.get("offerId"),
                 marketplace = Marketplace.dmarket.value,
                 item_id = None,
-                #TODO: item_id has to be updated in databaseClient based on the id that the 
-                # item gets
                 price_cents = item.get("priceCents"),
-                tradeable = attributes.get("tradable") == "true",
+                tradable = attributes.get("tradable") == "true",
                 trade_lock_until = attributes.get("unlockDate"),
                 trade_lock_seconds = attributes.get("tradeLockDuration"),
                 stickers = cs2.get("stickers"),
@@ -196,7 +196,7 @@ class DMarketClient(ClientInterface):
                 is_new = True,
             )
 
-            result.append(StandardizedResult(weapon, item, listing))
+            result.append(StandardizedResult(weaponInstance, itemInstance, listingInstance))
 
         return result 
 

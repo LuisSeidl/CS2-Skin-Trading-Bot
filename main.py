@@ -14,5 +14,5 @@ if __name__ == "__main__":
     #    schedule.run_pending()
     #    time.sleep(1)
 
-    bot.cleanUp(timedelta(1))
+    #bot.cleanUp(timedelta(1))
     bot.mainApplication()

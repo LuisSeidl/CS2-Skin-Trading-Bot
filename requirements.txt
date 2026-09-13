@@ -3,3 +3,4 @@ pynacl
 playwright
 sqlalchemy
 schedule
+psycopg[binary]

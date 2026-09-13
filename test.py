@@ -1,25 +1,12 @@
-# import requests
-# import json
-# from helpers.utils import dumpToTempFile
-# from Clients.dmarket import DMarketClient
+from entities import ExteriorType
 
-# with open("keys.json", "r") as f:
-#     data = json.load(f)
-#     DB_URL = data["DB_LOCAL"]
-#     PUB = data["DMARKET_PUBLIC"]
-#     PRIV = data["DMARKET_PRIVATE"]
+IGNORED_EXTERIORS = [ExteriorType.uncalculated, ExteriorType.not_painted, ExteriorType.unspecified]
 
 
-# client = DMarketClient(public_key=PUB, secret_key=PRIV)
+for exterior in ExteriorType:
+    if exterior in IGNORED_EXTERIORS:
+        continue
 
-# result = client.fetch_market_page(limit = 10)
-# result
-# dumpToTempFile(result)
-
-import enum
-
-from entities import WeaponType
-
-teststring = "pistol"
-
-print(type(WeaponType(teststring).value))
+    title_name = exterior.name.title()
+    slug = title_name[0] + title_name.split("_")[-1][0]
+    print(slug)
