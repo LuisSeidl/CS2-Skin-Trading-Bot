@@ -16,21 +16,18 @@ class FloatRangePopulator():
         
         self.page = self.browser.new_page()
         self.page.goto(FLOAT_CALC_URL)
+        self.page.add_locator_handler(self.page.locator(".cl-popup.visible"),self.__close_pop_up)
 
-        #banner = self.page.get_by_role("button", name="Maybe Later")
-        #banner.wait_for(state="visible", timeout=5000)
-        #if banner.is_visible():
-        #    banner.click()
 
     def __shutdown__(self):
         self.browser.close()
         self.playwright.stop()
 
+    def __close_pop_up(self):
+        self.page.locator(".cl-popup-close").click()
+
     def get_float_range(self, weapon_name: str) -> Optional[FloatRange]:
         """returns the float range for the skin, returns None if no float range is found"""
-
-        #popup_close_button = self.page.locator(clash-popup)
-
 
         # Search for Item
         self.page.locator('.search-toggle').click()

@@ -91,6 +91,9 @@ class WeaponType(str, enum.Enum):
     container       = "container"
     machinegun      = "machinegun"
     graffiti        = "graffiti"
+    gloves          = "gloves"
+    charm           = "charm"
+    
 class Marketplace(str, enum.Enum):
     #TODO: add more
     dmarket = "dmarket"

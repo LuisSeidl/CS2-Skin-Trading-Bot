@@ -97,7 +97,7 @@ class DatabaseClient:
             LoggingSystem.app.warning(f"No weapon {weaponName} exists in Weapon Table")
             return None
 
-        float_range = self.session.scalar(select(FloatRange).where(Weapon.float_range_name == weapon_res.float_range_name))
+        float_range = self.session.scalar(select(FloatRange).join(Weapon.float_range))
 
         if float_range is None:
             LoggingSystem.app.warning(f"No float range {float_range} for weapon {weaponName} exists in FloatRange Table")
@@ -125,7 +125,7 @@ class DatabaseClient:
 
     def __insertItem(self, item: Item) -> str | int:
         """Inserts Item, merges on item attributes"""
-        
+        #TODO: FIx this, currently 2026-09-15 02:50:01,062 - WARNING - Failed to insert item None
         return self.__merge(item)
 
     def __insertListing(self, listing: Listing)-> str | int:
@@ -139,7 +139,7 @@ class DatabaseClient:
         Returns 1 on error and 0 on success 
         """
         weaponVal = self.__insertWeapon(result.weapon)
-        if weaponVal is not str:
+        if type(weaponVal) is not str:
             LoggingSystem.app.warning(f"Failed to find weapon: {weaponVal}")
             return 1
 

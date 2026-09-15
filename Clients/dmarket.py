@@ -138,10 +138,10 @@ class DMarketClient():
                 quality = _parse_quality(quality_raw)
 
             # Collection will be ensured in databaseClient
-            collection_raw = cs2.get("collection") or []
+            collection_raw = cs2.get("collection")
             collection_name = None
             if collection_raw:
-                collection_name = collection_raw[0].strip() if collection_raw[0] else None
+                collection_name = collection_raw
 
             #Float range will be ensured in databaseClient
             float_range_name = "NO_FLOAT_RANGE"

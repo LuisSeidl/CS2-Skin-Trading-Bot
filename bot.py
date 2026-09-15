@@ -19,7 +19,7 @@ def load_keys(path: Path) -> tuple[str, str, str]:
 GAME_ID       = "a8db"          # CS2
 CURRENCY      = "USD"
 LIMIT         = 10            # items per page (DMarket max is 100)
-MAX_PAGES     = 10               # set to None to paginate until exhausted
+MAX_PAGES     = 1               # set to None to paginate until exhausted
 
 
 class Bot:
