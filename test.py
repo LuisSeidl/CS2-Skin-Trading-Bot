@@ -1,12 +1,14 @@
-from entities import ExteriorType
+from Clients.dmarket import DMarketClient
+import json
 
-IGNORED_EXTERIORS = [ExteriorType.uncalculated, ExteriorType.not_painted, ExteriorType.unspecified]
+with open("keys.json") as f:
+    keys = json.load(f)
 
+dmarketKeys = {
+    "public_key": keys["DMARKET_PUBLIC"],
+    "secret_key": keys["DMARKET_PRIVATE"]
+}
 
-for exterior in ExteriorType:
-    if exterior in IGNORED_EXTERIORS:
-        continue
+client = DMarketClient(dmarketKeys, 10)
 
-    title_name = exterior.name.title()
-    slug = title_name[0] + title_name.split("_")[-1][0]
-    print(slug)
+client.test_authorization()

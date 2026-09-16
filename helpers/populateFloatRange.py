@@ -44,6 +44,7 @@ class FloatRangePopulator():
         extracted_data = {}
 
         wear_bar = self.page.locator(".wear-bar.text-center")
+        wear_bar.wait_for(state="attached")
 
         for exterior in ExteriorType:
             if exterior in IGNORED_EXTERIORS:
@@ -67,7 +68,7 @@ class FloatRangePopulator():
                     "to": None
                 }
 
-        return FloatRange(
+        fr = FloatRange(
             name=weapon_name,
             factory_new_from=extracted_data["factory_new"]["from"],
             factory_new_to=extracted_data["factory_new"]["to"],
@@ -81,3 +82,8 @@ class FloatRangePopulator():
             battle_scarred_to=extracted_data["battle_scarred"]["to"],
             not_painted=False
         )
+
+        if fr.isFalse():
+            return None
+        else:
+            return fr

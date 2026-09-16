@@ -57,6 +57,10 @@ class DMarketClient():
         self.keys = keys
         self.limit = limit
 
+    def test_authorization(self):
+        result = self.__call("GET", "/account/v1/user")
+        print(result)
+
     def __call(self, method: str, path: str, payload: dict | None = None):
         method = method.upper()
         nonce = str(round(datetime.now().timestamp()))
@@ -89,7 +93,7 @@ class DMarketClient():
             r.raise_for_status()
             return r.json(), None
         except requests.RequestException as e:
-            detail = e.response.text if e.response else "no body"
+            detail = e.response.text if e.response is not None else "no body"
             return None, f"{e} — {detail}"
 
     def _sign(self, s: str) -> str:

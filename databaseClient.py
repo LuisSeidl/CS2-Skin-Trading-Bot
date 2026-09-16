@@ -59,7 +59,10 @@ class DatabaseClient:
         """
         with self.session as session:
             try:
-                session.merge(instance)
+                result = session.merge(instance)
+                #TODO: Change this function, we need the merge call to return the actual data 
+                # that is now stored in the database. right now it returns just the instance with id=None
+                print(result)
                 session.commit()
             except Exception as e:
                 session.rollback()
@@ -119,13 +122,11 @@ class DatabaseClient:
         float_range = self.floatRangePopulator.get_float_range(weapon.full_name)
         if float_range:
              weapon.float_range_name = self.__ensure_float_range(float_range)
-
         return self.__merge(weapon)
 
 
     def __insertItem(self, item: Item) -> str | int:
         """Inserts Item, merges on item attributes"""
-        #TODO: FIx this, currently 2026-09-15 02:50:01,062 - WARNING - Failed to insert item None
         return self.__merge(item)
 
     def __insertListing(self, listing: Listing)-> str | int:

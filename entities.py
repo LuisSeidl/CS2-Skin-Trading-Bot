@@ -78,7 +78,6 @@ class QualityType(str, enum.Enum):
     stock         = "stock"
 
 class WeaponType(str, enum.Enum):
-    #TODO: Add more once we know all of them
     equipment       = "equipment"
     pistol          = "pistol"
     sniper_rifle    = "sniper rifle"
@@ -95,11 +94,9 @@ class WeaponType(str, enum.Enum):
     charm           = "charm"
     
 class Marketplace(str, enum.Enum):
-    #TODO: add more
     dmarket = "dmarket"
 
 class ListingStatus(str, enum.Enum):
-    #TODO: add more
     default = "default"
 
 class OpportunityType(str, enum.Enum):
@@ -208,18 +205,33 @@ class FloatRange(Base):
     weapons:      Mapped[Optional[list["Weapon"]]]    = relationship("Weapon", back_populates="float_range")
 
     def compareRange(self, other: "FloatRange") -> bool:
-        return and_(
-            self.factory_new_from == other.factory_new_from,
-            self.factory_new_to == other.factory_new_to,
-            self.minimal_wear_from == other.minimal_wear_from,
-            self.minimal_wear_to == other.minimal_wear_to,
-            self.field_tested_from == other.field_tested_from,
-            self.field_tested_to == other.field_tested_to,
-            self.well_worn_from == other.well_worn_from,
-            self.well_worn_to == other.well_worn_to,
-            self.battle_scarred_from == other.battle_scarred_from,
-            self.battle_scarred_to == other.battle_scarred_to,
+        return (
+            self.factory_new_from == other.factory_new_from and
+            self.factory_new_to == other.factory_new_to and
+            self.minimal_wear_from == other.minimal_wear_from and
+            self.minimal_wear_to == other.minimal_wear_to and
+            self.field_tested_from == other.field_tested_from and
+            self.field_tested_to == other.field_tested_to and
+            self.well_worn_from == other.well_worn_from and
+            self.well_worn_to == other.well_worn_to and
+            self.battle_scarred_from == other.battle_scarred_from and
+            self.battle_scarred_to == other.battle_scarred_to and
             self.not_painted == other.not_painted
+        )
+
+    def isFalse(self) -> bool:
+        return (
+            self.factory_new_from == None and
+            self.factory_new_to == None and
+            self.minimal_wear_from == None and
+            self.minimal_wear_to == None and
+            self.field_tested_from == None and
+            self.field_tested_to == None and
+            self.well_worn_from == None and
+            self.well_worn_to == None and
+            self.battle_scarred_from == None and
+            self.battle_scarred_to == None and
+            self.not_painted == False
         )
         
     def findExteriorType(self, floatValue: float) -> ExteriorType:
