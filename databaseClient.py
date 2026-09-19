@@ -28,12 +28,12 @@ class DatabaseClient:
     def stopFloatRangePopulator(self):
         self.floatRangePopulator.__shutdown__()
 
-    def __return_pk(self, instance) -> str | int:
+    def __return_pk(self, instance):
         _type = type(instance)
         if _type == Weapon:
             return instance.full_name
         elif _type == Item:
-            return instance.id
+            return (instance.marketplace, instance.marketplace_id)
         elif _type == Listing:
             return instance.id
         elif _type == Collection:
@@ -52,17 +52,14 @@ class DatabaseClient:
             session.rollback()
             raise e
 
-    def __merge(self, instance) -> str | int:
+    def __merge(self, instance):
         """
         Inserts or updates the given instance in the database
         Uses SQLAlchemy merge(), which will insert if not found, or update if exists, based on the primary key
         """
         with self.session as session:
             try:
-                result = session.merge(instance)
-                #TODO: Change this function, we need the merge call to return the actual data 
-                # that is now stored in the database. right now it returns just the instance with id=None
-                print(result)
+                session.merge(instance)
                 session.commit()
             except Exception as e:
                 session.rollback()
@@ -114,7 +111,7 @@ class DatabaseClient:
     ######################## NEW FUNCTIONS ###########################################
     ##################################################################################
 
-    def __insertWeapon(self, weapon: Weapon) -> str | int:
+    def __insertWeapon(self, weapon: Weapon):
         """Makes sure that the data needed for the weapon exist and merges the weapon"""
         if weapon.collection_name:
             weapon.collection_name = self.__ensure_collection(weapon.collection_name)
@@ -125,11 +122,11 @@ class DatabaseClient:
         return self.__merge(weapon)
 
 
-    def __insertItem(self, item: Item) -> str | int:
+    def __insertItem(self, item: Item):
         """Inserts Item, merges on item attributes"""
         return self.__merge(item)
 
-    def __insertListing(self, listing: Listing)-> str | int:
+    def __insertListing(self, listing: Listing):
         """Inserts a specific listing, merges based on offerId"""
         return self.__merge(listing)
 
@@ -139,22 +136,22 @@ class DatabaseClient:
         Inserts one StandardizedResult based on Weapon, Item, Listing
         Returns 1 on error and 0 on success 
         """
-        weaponVal = self.__insertWeapon(result.weapon)
-        if type(weaponVal) is not str:
-            LoggingSystem.app.warning(f"Failed to find weapon: {weaponVal}")
+        weaponPk = self.__insertWeapon(result.weapon)
+        if type(weaponPk) is not str:
+            LoggingSystem.app.warning(f"Failed to find weapon: {weaponPk}")
             return 1
 
         if result.item.exterior_type is None and result.item.float_value is not None:
-            result.item.exterior_type = self.__getExteriorType(weaponVal, float(result.item.float_value))
-            result.item.weapon_full_name = weaponVal
+            result.item.exterior_type = self.__getExteriorType(weaponPk, float(result.item.float_value))
+            result.item.weapon_full_name = weaponPk
 
-        itemId = self.__insertItem(result.item)
+        itemPk = self.__insertItem(result.item)
 
-        if itemId is not int or itemId != -1:
-            LoggingSystem.app.warning(f"Failed to insert item {result.item.id}")
+        if type(itemPk) is not tuple or len(itemPk) < 2:
+            LoggingSystem.app.warning(f"Failed to insert item Marketplace{result.item.marketplace} | ID: {result.item.marketplace_id}")
             return 1
         
-        result.listing.item_id = itemId
+        result.listing.marketplace_item_id = itemPk[1]
         listingId = self.__insertListing(result.listing)
 
         if not listingId:

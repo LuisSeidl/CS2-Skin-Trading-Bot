@@ -181,7 +181,7 @@ class DMarketClient():
                 is_souvenir = cs2.get("category") == "CATEGORY_SOUVENIR",
                 paint_index = cs2.get("paintIndex"),
                 steam_class_id = steam_class_id,
-                marketplace = Marketplace.dmarket,
+                marketplace = Marketplace.dmarket.value,
                 marketplace_id = attributes.get("id")
             )
 
@@ -189,7 +189,7 @@ class DMarketClient():
             listingInstance = Listing(
                 offer_id = item.get("offerId"),
                 marketplace = Marketplace.dmarket.value,
-                item_id = None,
+                marketplace_item_id = None,
                 price_cents = item.get("priceCents"),
                 tradable = attributes.get("tradable") == "true",
                 trade_lock_until = attributes.get("unlockDate"),

@@ -1,14 +1,6 @@
-from Clients.dmarket import DMarketClient
-import json
+test = ("hello", 2)
 
-with open("keys.json") as f:
-    keys = json.load(f)
-
-dmarketKeys = {
-    "public_key": keys["DMARKET_PUBLIC"],
-    "secret_key": keys["DMARKET_PRIVATE"]
-}
-
-client = DMarketClient(dmarketKeys, 10)
-
-client.test_authorization()
+print(test[1])
+print(test[0])
+print(type(test))
+print(len(test))

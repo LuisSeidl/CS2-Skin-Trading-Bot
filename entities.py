@@ -16,6 +16,8 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    PrimaryKeyConstraint,
+    ForeignKeyConstraint,
     and_,
     func,
     text,
@@ -278,7 +280,6 @@ class Item(Base):
 
     __tablename__ = "items"
 
-    id:        Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     weapon_full_name:      Mapped[Optional[str]] = mapped_column(ForeignKey("weapons.full_name"))
     float_value:   Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 9))
     exterior_type:  Mapped[Optional[str]] = mapped_column(String(20))
@@ -296,13 +297,15 @@ class Item(Base):
 
     __table_args__ = (
         Index("idx_items_steam_class", "steam_class_id"),
+        PrimaryKeyConstraint("marketplace", "marketplace_id")
     )
+    
 
     weapon:          Mapped[Optional["Weapon"]]        = relationship("Weapon",        back_populates="items")
-    listings:        Mapped[list["Listing"]]           = relationship("Listing",       back_populates="item")
-    price_snapshots: Mapped[list["PriceSnapshot"]]     = relationship("PriceSnapshot", back_populates="item")
-    price_stats:     Mapped[list["PriceStat"]]         = relationship("PriceStat",     back_populates="item")
-    trades:          Mapped[list["Trade"]]             = relationship("Trade",          back_populates="item")
+    listings:        Mapped[list["Listing"]]           = relationship("Listing",       back_populates="item", primaryjoin="and_(Item.marketplace == Listing.marketplace, Item.marketplace_id == Listing.marketplace_item_id)",cascade= "all, delete")
+    price_snapshots: Mapped[list["PriceSnapshot"]]     = relationship("PriceSnapshot", back_populates="item", primaryjoin="and_(Item.marketplace == PriceSnapshot.marketplace, Item.marketplace_id == PriceSnapshot.marketplace_item_id)",cascade= "all, delete")
+    price_stats:     Mapped[list["PriceStat"]]         = relationship("PriceStat",     back_populates="item", primaryjoin="and_(Item.marketplace == PriceStat.marketplace, Item.marketplace_id == PriceStat.marketplace_item_id)",cascade= "all, delete")
+    trades:          Mapped[list["Trade"]]             = relationship("Trade",          back_populates="item", primaryjoin="and_(Item.marketplace == Trade.marketplace, Item.marketplace_id == Trade.marketplace_item_id)",cascade= "all, delete")
 
 # ---------------------------------------------------------------------------
 # Listing
@@ -315,8 +318,8 @@ class Listing(Base):
     id:       Mapped[uuid.UUID]     = mapped_column(UUID(as_uuid=True), primary_key=True,
                                                      server_default=func.gen_random_uuid())
     offer_id: Mapped[str]           = mapped_column(Text, nullable=False)
-    marketplace: Mapped[str]           = mapped_column(String(20), nullable=False)
-    item_id:  Mapped[Optional[int]] = mapped_column(ForeignKey("items.id"))
+    marketplace:        Mapped[str]                = mapped_column(Text, nullable=False)
+    marketplace_item_id: Mapped[Optional[str]]     = mapped_column(Text)
     price_cents:           Mapped[int]           = mapped_column(Integer, nullable=False)
     tradable:           Mapped[bool]               = mapped_column(Boolean, nullable=False, default=True)
     trade_lock_until:   Mapped[Optional[datetime]] = mapped_column()
@@ -331,7 +334,12 @@ class Listing(Base):
 
     __table_args__ = (
         UniqueConstraint("marketplace", "offer_id", name="uq_listings_platform_offer"),
-        Index("idx_listings_item_platform", "item_id", "marketplace",
+        ForeignKeyConstraint(
+            ["marketplace", "marketplace_item_id"],
+            ["items.marketplace", "items.marketplace_id"],
+            name="fk_listings_items_composite"
+        ),
+        Index("idx_listings_item_platform", "marketplace_item_id", "marketplace",
               postgresql_where=text("status = 'active'")),
         Index("idx_listings_price",     "price_cents",
               postgresql_where=text("status = 'active'")),
@@ -341,8 +349,7 @@ class Listing(Base):
               postgresql_where=text("tradable = FALSE")),
     )
 
-    item: Mapped[Optional["Item"]] = relationship("Item", back_populates="listings", cascade="all, delete")
-
+    item: Mapped[Optional["Item"]] = relationship("Item", back_populates="listings", foreign_keys="[Listing.marketplace, Listing.marketplace_item_id]")
 # ---------------------------------------------------------------------------
 # Opportunity
 # ---------------------------------------------------------------------------
@@ -421,19 +428,23 @@ class PriceSnapshot(Base):
     __tablename__ = "price_snapshots"
 
     id:          Mapped[int]               = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    item_id:     Mapped[int]               = mapped_column(ForeignKey("items.id"), nullable=False)
-    platform:    Mapped[str]               = mapped_column(String(20), nullable=False)
+    marketplace:         Mapped[str]               = mapped_column(Text, nullable=False)
+    marketplace_item_id: Mapped[Optional[str]]     = mapped_column(Text)
     price_cents: Mapped[int]               = mapped_column(Integer, nullable=False)
     float_value: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 9))
     recorded_at: Mapped[datetime]          = mapped_column(nullable=False, server_default=func.now())
 
     __table_args__ = (
-        Index("idx_price_snapshots_lookup", "item_id", "platform", "recorded_at",
+        Index("idx_price_snapshots_lookup", "marketplace", "marketplace_item_id", "recorded_at",
               postgresql_ops={"recorded_at": "DESC"}),
+        ForeignKeyConstraint(
+            ["marketplace", "marketplace_item_id"],
+            ["items.marketplace", "items.marketplace_id"],
+            name="fk_price_snapshots_items_composite"
+        ),
     )
 
-    item: Mapped[Optional["Item"]] = relationship("Item", back_populates="price_snapshots")
-
+    item: Mapped[Optional["Item"]] = relationship("Item", back_populates="price_snapshots", foreign_keys="[PriceSnapshot.marketplace, PriceSnapshot.marketplace_item_id]")
 # ---------------------------------------------------------------------------
 # PriceStat
 # ---------------------------------------------------------------------------
@@ -441,9 +452,9 @@ class PriceStat(Base):
     """Pre-computed price aggregates, refreshed by a background job."""
 
     __tablename__ = "price_stats"
-
-    item_id:  Mapped[int] = mapped_column(ForeignKey("items.id"), primary_key=True)
-    platform: Mapped[str] = mapped_column(String(20), primary_key=True)
+    id:          Mapped[int]               = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    marketplace:         Mapped[str]           = mapped_column(Text, nullable=False)
+    marketplace_item_id: Mapped[Optional[str]] = mapped_column(Text)
     period:   Mapped[str] = mapped_column(Text, primary_key=True)  # d1 | d3 | d7 | d30
 
     min_cents:    Mapped[Optional[int]] = mapped_column(Integer)
@@ -457,10 +468,14 @@ class PriceStat(Base):
 
     __table_args__ = (
         CheckConstraint("period IN ('d1', 'd3', 'd7', 'd30')", name="ck_price_stats_period"),
+        ForeignKeyConstraint(
+            ["marketplace", "marketplace_item_id"],
+            ["items.marketplace", "items.marketplace_id"],
+            name="fk_price_stats_items_composite"
+        ),
     )
 
-    item: Mapped[Optional["Item"]] = relationship("Item", back_populates="price_stats")
-
+    item: Mapped[Optional["Item"]] = relationship("Item", back_populates="price_stats", foreign_keys="[PriceStat.marketplace, PriceStat.marketplace_item_id]")
 # ---------------------------------------------------------------------------
 # StickerCatalog
 # ---------------------------------------------------------------------------
@@ -490,7 +505,8 @@ class Trade(Base):
 
     buy_platform:  Mapped[Optional[str]] = mapped_column(String(20))
     sell_platform: Mapped[Optional[str]] = mapped_column(String(20))
-    item_id:       Mapped[Optional[int]] = mapped_column(ForeignKey("items.id"))
+    marketplace:        Mapped[str]                = mapped_column(Text, nullable=False)
+    marketplace_item_id: Mapped[Optional[str]]     = mapped_column(Text)
 
     buy_price_cents:  Mapped[Optional[int]] = mapped_column(Integer)
     sell_price_cents: Mapped[Optional[int]] = mapped_column(Integer)
@@ -516,10 +532,15 @@ class Trade(Base):
         Index("idx_trades_status",      "status"),
         Index("idx_trades_parent",      "parent_trade_id",
               postgresql_where=text("parent_trade_id IS NOT NULL")),
+        ForeignKeyConstraint(
+            ["marketplace", "marketplace_item_id"],
+            ["items.marketplace", "items.marketplace_id"],
+            name="fk_trades_items_composite"
+        ),
     )
 
     opportunity: Mapped[Optional["Opportunity"]] = relationship("Opportunity", back_populates="trades", cascade="all, delete")
-    item:        Mapped[Optional["Item"]]        = relationship("Item",        back_populates="trades", cascade="all, delete")
+    item: Mapped[Optional["Item"]] = relationship("Item", back_populates="trades", foreign_keys="[Trade.marketplace, Trade.marketplace_item_id]")
 
     child_trades: Mapped[list["Trade"]]   = relationship(
         "Trade",

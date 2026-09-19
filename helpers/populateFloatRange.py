@@ -55,13 +55,15 @@ class FloatRangePopulator():
             element = wear_bar.locator('div[data-container="body"]').get_by_text(f"{slug}", exact=False)
 
             if element.count() > 0:
+                data = None
                 attribute = element.get_attribute("data-original-title")
                 if attribute:
                     data = attribute.split(":")[1].strip().split("-")
-                extracted_data[exterior.name] = {
-                    "from": float(data[0]),
-                    "to": float(data[1])
-                }
+                    if data and len(data) > 1:
+                        extracted_data[exterior.name] = {
+                            "from": float(data[0]),
+                            "to": float(data[1])
+                        }
             else:
                 extracted_data[exterior.name] = {
                     "from": None,
