@@ -7,12 +7,12 @@ from bot import Bot
 if __name__ == "__main__":
     bot = Bot()
 
-    #schedule.every(5).minutes.do(bot.mainApplication)
-    #schedule.every(1).day.do(bot.cleanUp)
+    schedule.every(5).minutes.do(bot.mainApplication)
+    schedule.every(1).day.do(bot.cleanUp)
 
     #while True:
     #    schedule.run_pending()
     #    time.sleep(1)
 
-    #bot.cleanUp(timedelta(1))
     bot.mainApplication()
+    bot.cleanUp(timedelta(1))

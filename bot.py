@@ -23,9 +23,12 @@ MAX_PAGES     = 1               # set to None to paginate until exhausted
 
 
 class Bot:
-    def __init__(self):
+    def __init__(self, limit: int = 100, max_pages: int = 10):
         pub, priv, db = load_keys(KEYS_FILE)
         self.dbClient = DatabaseClient(db)
+
+        LIMIT = limit
+        MAX_PAGES = max_pages
 
         dMarketKeys = {
             "public_key": pub,
@@ -41,7 +44,8 @@ class Bot:
 
     def mainApplication(self):
         results = self.dMarketClient.getData(MAX_PAGES)
-        self.dbClient.insertResults(results)
-
+        state = self.dbClient.insertResults(results)
+        if state == 0:
+            LoggingSystem.app.info("===================== Finished Inserting Items =====================")
         self.dbClient.stopFloatRangePopulator()
 

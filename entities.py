@@ -21,6 +21,7 @@ from sqlalchemy import (
     and_,
     func,
     text,
+    ColumnElement
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -206,35 +207,35 @@ class FloatRange(Base):
 
     weapons:      Mapped[Optional[list["Weapon"]]]    = relationship("Weapon", back_populates="float_range")
 
-    def compareRange(self, other: "FloatRange") -> bool:
-        return (
-            self.factory_new_from == other.factory_new_from and
-            self.factory_new_to == other.factory_new_to and
-            self.minimal_wear_from == other.minimal_wear_from and
-            self.minimal_wear_to == other.minimal_wear_to and
-            self.field_tested_from == other.field_tested_from and
-            self.field_tested_to == other.field_tested_to and
-            self.well_worn_from == other.well_worn_from and
-            self.well_worn_to == other.well_worn_to and
-            self.battle_scarred_from == other.battle_scarred_from and
-            self.battle_scarred_to == other.battle_scarred_to and
+    def compareRange(self, other: "FloatRange"):
+        return and_(
+            self.factory_new_from == other.factory_new_from,
+            self.factory_new_to == other.factory_new_to,
+            self.minimal_wear_from == other.minimal_wear_from,
+            self.minimal_wear_to == other.minimal_wear_to,
+            self.field_tested_from == other.field_tested_from,
+            self.field_tested_to == other.field_tested_to,
+            self.well_worn_from == other.well_worn_from,
+            self.well_worn_to == other.well_worn_to,
+            self.battle_scarred_from == other.battle_scarred_from,
+            self.battle_scarred_to == other.battle_scarred_to,
             self.not_painted == other.not_painted
         )
 
-    def isFalse(self) -> bool:
-        return (
-            self.factory_new_from == None and
-            self.factory_new_to == None and
-            self.minimal_wear_from == None and
-            self.minimal_wear_to == None and
-            self.field_tested_from == None and
-            self.field_tested_to == None and
-            self.well_worn_from == None and
-            self.well_worn_to == None and
-            self.battle_scarred_from == None and
-            self.battle_scarred_to == None and
-            self.not_painted == False
-        )
+    def isFalse(self):
+        return all([
+        self.factory_new_from is None,
+        self.factory_new_to is None,
+        self.minimal_wear_from is None,
+        self.minimal_wear_to is None,
+        self.field_tested_from is None,
+        self.field_tested_to is None,
+        self.well_worn_from is None,
+        self.well_worn_to is None,
+        self.battle_scarred_from is None,
+        self.battle_scarred_to is None,
+        self.not_painted is False
+    ])
         
     def findExteriorType(self, floatValue: float) -> ExteriorType:
         result = ExteriorType.not_painted
@@ -315,25 +316,23 @@ class Listing(Base):
 
     __tablename__ = "listings"
 
-    id:       Mapped[uuid.UUID]     = mapped_column(UUID(as_uuid=True), primary_key=True,
-                                                     server_default=func.gen_random_uuid())
-    offer_id: Mapped[str]           = mapped_column(Text, nullable=False)
-    marketplace:        Mapped[str]                = mapped_column(Text, nullable=False)
-    marketplace_item_id: Mapped[Optional[str]]     = mapped_column(Text)
-    price_cents:           Mapped[int]           = mapped_column(Integer, nullable=False)
-    tradable:           Mapped[bool]               = mapped_column(Boolean, nullable=False, default=True)
-    trade_lock_until:   Mapped[Optional[datetime]] = mapped_column()
-    trade_lock_seconds: Mapped[Optional[int]]      = mapped_column(Integer)
-    stickers:                  Mapped[Optional[Any]] = mapped_column(JSONB)
-    owner_id:     Mapped[Optional[str]] = mapped_column(Text)
-    status: Mapped[str]  = mapped_column(Text, nullable=False, default="active")
-    is_new: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    fetched_at:    Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
-    first_seen_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
-    last_seen_at:  Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    offer_id:               Mapped[str]                  = mapped_column(Text)
+    marketplace:            Mapped[str]                  = mapped_column(Text)
+    marketplace_item_id:    Mapped[Optional[str]]        = mapped_column(Text)
+    price_cents:            Mapped[int]                  = mapped_column(Integer, nullable=False)
+    tradable:               Mapped[bool]                 = mapped_column(Boolean, nullable=False, default=True)
+    trade_lock_until:       Mapped[Optional[datetime]]   = mapped_column()
+    trade_lock_seconds:     Mapped[Optional[int]]        = mapped_column(Integer)
+    stickers:               Mapped[Optional[Any]]        = mapped_column(JSONB)
+    owner_id:               Mapped[Optional[str]]        = mapped_column(Text)
+    status:                 Mapped[str]                  = mapped_column(Text, nullable=False, default="active")
+    is_new:                 Mapped[bool]                 = mapped_column(Boolean, nullable=False, default=False)
+    fetched_at:             Mapped[datetime]             = mapped_column(nullable=False, server_default=func.now())
+    first_seen_at:          Mapped[datetime]             = mapped_column(nullable=False, server_default=func.now())
+    last_seen_at:           Mapped[datetime]             = mapped_column(nullable=False, server_default=func.now())
 
     __table_args__ = (
-        UniqueConstraint("marketplace", "offer_id", name="uq_listings_platform_offer"),
+        PrimaryKeyConstraint("marketplace", "offer_id"),
         ForeignKeyConstraint(
             ["marketplace", "marketplace_item_id"],
             ["items.marketplace", "items.marketplace_id"],

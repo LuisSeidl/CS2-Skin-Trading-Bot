@@ -35,7 +35,7 @@ class DatabaseClient:
         elif _type == Item:
             return (instance.marketplace, instance.marketplace_id)
         elif _type == Listing:
-            return instance.id
+            return (instance.marketplace, instance.offer_id)
         elif _type == Collection:
             return instance.name
         else: 
@@ -112,7 +112,16 @@ class DatabaseClient:
     ##################################################################################
 
     def __insertWeapon(self, weapon: Weapon):
-        """Makes sure that the data needed for the weapon exist and merges the weapon"""
+        """
+        Makes sure that the data needed for the weapon exist and merges the weapon
+        Checks if the weapon already exists 
+         -> skips creating the float_range and collection if true 
+         -> else create both entries first, then merge
+        """
+        row = self.session.scalar(select(Weapon).where(Weapon.full_name == weapon.full_name))
+        if row:
+            return row.full_name
+        
         if weapon.collection_name:
             weapon.collection_name = self.__ensure_collection(weapon.collection_name)
 
@@ -138,7 +147,7 @@ class DatabaseClient:
         """
         weaponPk = self.__insertWeapon(result.weapon)
         if type(weaponPk) is not str:
-            LoggingSystem.app.warning(f"Failed to find weapon: {weaponPk}")
+            LoggingSystem.app.warning(f"Failed to insert weapon: {weaponPk}")
             return 1
 
         if result.item.exterior_type is None and result.item.float_value is not None:
@@ -148,14 +157,14 @@ class DatabaseClient:
         itemPk = self.__insertItem(result.item)
 
         if type(itemPk) is not tuple or len(itemPk) < 2:
-            LoggingSystem.app.warning(f"Failed to insert item Marketplace{result.item.marketplace} | ID: {result.item.marketplace_id}")
+            LoggingSystem.app.warning(f"Failed to insert item Marketplace {result.item.marketplace} | ID: {result.item.marketplace_id}")
             return 1
         
         result.listing.marketplace_item_id = itemPk[1]
-        listingId = self.__insertListing(result.listing)
+        listingPk = self.__insertListing(result.listing)
 
-        if not listingId:
-            LoggingSystem.app.warning(f"Failed to insert listing {result.listing.id}")
+        if type(listingPk) is not tuple or len(listingPk) < 2:
+            LoggingSystem.app.warning(f"Failed to insert listing Marketplace {result.listing.marketplace} | Offer_ID: {result.listing.offer_id}")
             return 1
 
         return 0
