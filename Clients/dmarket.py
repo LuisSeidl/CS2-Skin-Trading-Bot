@@ -50,6 +50,9 @@ class DMarketClient():
 
     keys = dict()
     limit = 0
+    cursor: Optional[str] = None
+    curr_page = 0
+    total_ok = total_skipped = 0
 
     def __init__(self, keys: dict , limit: int) -> None:
         if not keys["public_key"] or not keys["secret_key"]:
@@ -238,4 +241,48 @@ class DMarketClient():
                     total_ok, total_skipped, 
                 )                
                 return standardizedResults
-    
+
+    def fetchNextPage(self, max_pages: int) -> Optional[list[StandardizedResult]]:
+        """
+        Fetches the x listings, based on the specified limit during the initialisation of the instance.
+        Max_pages can be used to limit results.
+        Returns list[StandardizedResult] when there are results
+        Returns None, when we have either hit the max_pages, or there are no more listings
+        """
+        standardized_items = []
+
+        if max_pages and self.curr_page >= max_pages:
+            self.curr_page = 0
+            self.total_ok = 0
+            self.total_skipped = 0
+            self.cursor = None
+            return None
+        
+        self.curr_page += 1
+        LoggingSystem.app.info("DMarketClient: Fetching page %d (cursor=%s)...", self.curr_page, self.cursor or "start")
+        items, self.cursor = self.__fetchMarketPage(cursor=self.cursor)
+        if not items :
+            self.curr_page = 0
+            self.total_ok = 0
+            self.total_skipped = 0  
+            return None
+
+        new_items = len(items)
+        standardized_items = self.__standardizeResult(items)
+        ok = len(standardized_items)
+        skipped = new_items-ok
+
+        self.total_ok += ok
+        self.total_skipped += skipped
+
+        LoggingSystem.app.info(
+                "DMarketClient finished fetching Page %d, cursor = %s ,%d total upserted, %d total skipped.",
+                self.curr_page, self.cursor, self.total_ok, self.total_skipped, 
+        ) 
+
+        if not self.cursor:
+            self.curr_page = 0
+            self.total_ok = 0
+            self.total_skipped = 0   
+
+        return standardized_items

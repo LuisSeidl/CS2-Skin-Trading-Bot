@@ -18,8 +18,6 @@ def load_keys(path: Path) -> tuple[str, str, str]:
 # DMarket fetch config
 GAME_ID       = "a8db"          # CS2
 CURRENCY      = "USD"
-LIMIT         = 10            # items per page (DMarket max is 100)
-MAX_PAGES     = 1               # set to None to paginate until exhausted
 
 
 class Bot:
@@ -27,14 +25,14 @@ class Bot:
         pub, priv, db = load_keys(KEYS_FILE)
         self.dbClient = DatabaseClient(db)
 
-        LIMIT = limit
-        MAX_PAGES = max_pages
+        self.limit = limit
+        self.max_pages = max_pages
 
         dMarketKeys = {
             "public_key": pub,
             "secret_key": priv
         }
-        self.dMarketClient = DMarketClient(dMarketKeys, LIMIT)
+        self.dMarketClient = DMarketClient(dMarketKeys, self.limit)
 
 
     def cleanUp(self, listings_before: timedelta):
@@ -43,8 +41,16 @@ class Bot:
 
 
     def mainApplication(self):
-        results = self.dMarketClient.getData(MAX_PAGES)
-        state = self.dbClient.insertResults(results)
+        state = 0
+
+        while True:
+            results = self.dMarketClient.fetchNextPage(self.max_pages)
+            if results:
+                state = self.dbClient.insertResults(results)
+            else:
+                LoggingSystem.app.info("===================== No more Results =====================")
+                break
+
         if state == 0:
             LoggingSystem.app.info("===================== Finished Inserting Items =====================")
         self.dbClient.stopFloatRangePopulator()

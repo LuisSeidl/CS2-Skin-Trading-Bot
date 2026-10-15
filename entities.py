@@ -95,6 +95,7 @@ class WeaponType(str, enum.Enum):
     graffiti        = "graffiti"
     gloves          = "gloves"
     charm           = "charm"
+    music_kit       = "music kit"
     
 class Marketplace(str, enum.Enum):
     dmarket = "dmarket"

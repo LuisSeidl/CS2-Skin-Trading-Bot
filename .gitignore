@@ -220,6 +220,7 @@ __marimo__/
 
 # API Keys
 keys.json
+ressources/Cloud.md
 
 #Testing file
 *.ipynb

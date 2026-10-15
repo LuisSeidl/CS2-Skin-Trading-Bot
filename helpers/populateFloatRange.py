@@ -37,17 +37,19 @@ class FloatRangePopulator():
         textbox = search_bar.get_by_placeholder("Search")
         textbox.fill(weapon_name)
 
-        scroll_container = search_bar.locator(".scroll-container")
-        scroll_container.wait_for()
-        link = scroll_container.locator(".dropdown-item").nth(0)
-        link.click()
-
-        # Extract values
-        extracted_data = {}
-
-        wear_bar = self.page.locator(".wear-bar.text-center")
-
         try:
+            scroll_container = search_bar.locator(".scroll-container")
+            scroll_container.wait_for(timeout=1000)
+            link = scroll_container.locator(".dropdown-item").nth(0)
+            link.click()
+
+            # Extract values
+            extracted_data = {}
+        except TimeoutError:
+            return None
+        
+        try:
+            wear_bar = self.page.locator(".wear-bar.text-center")
             wear_bar.wait_for(state="attached", timeout=3000)
         
             for exterior in ExteriorType:

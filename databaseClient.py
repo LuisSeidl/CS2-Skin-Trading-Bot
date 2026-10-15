@@ -80,6 +80,7 @@ class DatabaseClient:
         LoggingSystem.app.info("Created new collection: %s", name)
         return name
 
+    #TODO: Sometimes i get a float range with only NULLs everywhere, even though it exists on the website?
     def __ensure_float_range(self, item: FloatRange) -> str:
         """Get or create a float range row; return the name(pk)"""
         row = self.session.scalar(select(FloatRange).where(FloatRange.compareRange(FloatRange,item)))
@@ -127,8 +128,10 @@ class DatabaseClient:
 
         float_range = self.floatRangePopulator.get_float_range(weapon.full_name)
         if float_range:
-             weapon.float_range_name = self.__ensure_float_range(float_range)
-        return self.__merge(weapon)
+            weapon.float_range_name = self.__ensure_float_range(float_range)
+            return self.__merge(weapon)
+        else:
+            return None
 
 
     def __insertItem(self, item: Item):
@@ -147,8 +150,9 @@ class DatabaseClient:
         """
         weaponPk = self.__insertWeapon(result.weapon)
         if type(weaponPk) is not str:
+            #Simply skip whole listing instead of throwing an error
             LoggingSystem.app.warning(f"Failed to insert weapon: {weaponPk}")
-            return 1
+            return 0
 
         if result.item.exterior_type is None and result.item.float_value is not None:
             result.item.exterior_type = self.__getExteriorType(weaponPk, float(result.item.float_value))
