@@ -19,7 +19,6 @@
 	},
 	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
 	"workspaceFolder": "/workspace",
-	"postCreateCommand": "playwright install --with-deps",
     "overrideCommand": true,
 	"remoteUser": "root"
 }

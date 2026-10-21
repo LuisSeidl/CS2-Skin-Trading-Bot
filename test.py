@@ -1,6 +1,7 @@
-test = ("hello", 2)
 
-print(test[1])
-print(test[0])
-print(type(test))
-print(len(test))
+if 1 > 2:
+    rarity_name = "Rare"
+
+test = str(rarity_name) if rarity_name else "No rarity name"
+
+print(test)

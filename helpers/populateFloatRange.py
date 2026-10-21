@@ -1,30 +1,23 @@
-from playwright.sync_api import sync_playwright, Playwright, TimeoutError
+import requests
 import re
 import enum
 from typing import Optional
 from entities import FloatRange, ExteriorType
 
-FLOAT_CALC_URL = "https://stash.clash.gg/"
-IGNORED_EXTERIORS = [ExteriorType.uncalculated, ExteriorType.not_painted, ExteriorType.unspecified]
-
-
 class FloatRangePopulator():
-    
+    _ROOT = "https://api.cs2.sh"
+    _IGNORED_EXTERIORS = [ExteriorType.uncalculated, ExteriorType.not_painted, ExteriorType.unspecified]
+
     def __init__(self):
-        self.playwright = sync_playwright().start()
-        self.browser = self.playwright.chromium.launch(headless=False)
-        
-        self.page = self.browser.new_page()
-        self.page.goto(FLOAT_CALC_URL)
-        self.page.add_locator_handler(self.page.locator(".cl-popup.visible"),self.__close_pop_up)
+        pass
 
 
     def __shutdown__(self):
-        self.browser.close()
-        self.playwright.stop()
+        pass
 
-    def __close_pop_up(self):
-        self.page.locator(".cl-popup-close").click()
+    def __call(self, )
+
+
 
     def get_float_range(self, weapon_name: str) -> Optional[FloatRange]:
         """returns the float range for the skin, returns None if no float range is found"""

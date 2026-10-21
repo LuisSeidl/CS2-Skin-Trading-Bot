@@ -224,3 +224,7 @@ ressources/Cloud.md
 
 #Testing file
 *.ipynb
+
+#data files
+cs2sh/*.json
+schema_test.json
