@@ -1,18 +1,10 @@
 # CS2-Skin-Trading-Bot
 Trying to implement a bot that automatically buys/sells CS2 skins based on common financial concepts
 
-## Algorithms
+## Status
 
-### Main Algorithm
+The Programm is able to run fully automated, get prices in a standardized schema and get arbitrage opportunites.
 
-Runs every x seconds, has high priority
+But due to the Steam / CS2 Trade Lock ( Items bought can't be sold / traded for 7 days), my strategies of doing Marketplace-Arbitrage / Trade-Up-Arbitrage can not be executed without risking the capital for 7 days and being exposed to volatile prices. 
 
-1. Fetch Market Data every x seconds (prob every 5 minutes, as thats min limit for most Clients) -> only dmarket for now
-2. Based on Data, calculate possible tradeup routes, their costs and compare expected value with the value of current existing items listings
-    -> Add to opportunites if one found
-
-### Cleanup Algorithm
-
-Runs every hour, has lower priority than Main Algorithm
-
-Recursively deletes all entries from the listings table, which have 'last seen at' < 1 week ago
+Especially, as these strategies are designed to have a high volatility and trades have small margins, the 7 day trade lock makes them uninteresting, which is why i abondon further implementation of this application.
