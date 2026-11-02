@@ -1,0 +1,51 @@
+DB Stats:
+ 
+items: 48698 x 16 (46.581 tradable, 21.924 skin)
+prices: 193.386 x 8
+
+
+Platform Stats:
+
+Verkaufsgebühren:
+csfloat : 2%
+skinport: 8% (bei preisen über $1000 nur 6%)
+youpin: 1%
+buff: 1.5%
+c5game: 1%
+
+Kaufgebühren:
+csfloat: 0%
+skinport: 0%
+buff: 0%
+youpin: 0%
+c5game: 0%
+
+Auszahlungsgebühren:
+csfloat: 0.5-2.5% abhängig von Volumen (https://csfloat.com/faq#withdrawals/fees)
+skinport: 0%
+youpin: 0%
+buff: 1%
+c5game: 1%
+
+#TODO:
+
+Welche Strategien nehmen wir? 
+1. Normale Arbitrage
+2. Trade-up Arbitrage
+
+Was brauchen wir
+
+1. Normale Arbitrage:
+- Pro Tradable Item:
+    höchsten bid mit niedrigstem ask vergleichen
+    liste aller items (item_id, market_hashname, buy_platform, id (falls vorhanden) buy_price, sell_price, sell_platform, id (falls vorhanden)) wo bid > ask + puffer (entweder percent und fixed)
+
+    fastest query: 
+    for item_id:
+        check if highest bid > lowest ask + buffer 
+        if true:
+            get platform, platform_id ask, ask_volume where ask = lowest
+            get platform, platform_id bid, bid_volume where bid = highest
+            based on item_id get market_hashname
+
+    get all to
