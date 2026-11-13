@@ -1,6 +1,9 @@
 requests
-pynacl
 sqlalchemy
 schedule
 psycopg[binary]
 python-dateutil
+ipython
+ipykernel
+pandas
+numpy

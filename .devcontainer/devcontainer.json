@@ -1,5 +1,5 @@
 {
-	"name": "CS2 Trading Bot Dev Environment",
+	"name": "In Game Cosmetics Market Analyzer",
 	"build": {
 		"dockerfile": "Dockerfile",
 		"context": ".."
@@ -7,9 +7,10 @@
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"ms-python.python", // Offizielle Python-Unterstützung
-				"ms-python.vscode-pylance", // IntelliSense und Autovervollständigung
-				"ms-azuretools.vscode-docker" // Docker-Verwaltung direkt in VS Code
+				"ms-python.python", 
+				"ms-python.vscode-pylance", 
+				"ms-azuretools.vscode-docker",
+				"ms-toolsai.jupyter" 
 			],
 			"settings": {
 				"python.defaultInterpreterPath": "/usr/bin/python3",
