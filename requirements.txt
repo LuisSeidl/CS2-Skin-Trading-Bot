@@ -7,3 +7,5 @@ ipython
 ipykernel
 pandas
 numpy
+matplotlib
+scipy
